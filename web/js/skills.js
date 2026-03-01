@@ -1,18 +1,24 @@
 // ===== SKILLS UI =====
 
 function initSkills() {
+  log('Skills: loading...', 'tool');
   loadSkills();
 }
 
 async function loadSkills() {
   const el = document.getElementById('skills-content');
   if (el) el.innerHTML = '<div class="empty-state">Loading...</div>';
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15000);
   try {
-    const r = await fetch('/api/skills');
+    const r = await fetch('/api/skills', { signal: controller.signal });
+    clearTimeout(timer);
     const d = await r.json();
     renderSkills(d);
   } catch (e) {
-    if (el) el.innerHTML = '<div class="empty-state">Failed to load skills</div>';
+    clearTimeout(timer);
+    const msg = e.name === 'AbortError' ? 'Skills load timed out' : 'Failed to load skills';
+    if (el) el.innerHTML = `<div class="empty-state">${msg}</div>`;
   }
 }
 
@@ -94,3 +100,14 @@ async function testSkill(name) {
     log(`Test failed for ${name}: ` + e.message, 'err');
   }
 }
+
+// Fallback: attach directly to the Skills tab button so loading works
+// even if the window-name lookup in switchTab fails for any reason.
+document.addEventListener('DOMContentLoaded', function () {
+  var btn = document.querySelector('[data-tab="skills"]');
+  if (btn) {
+    btn.addEventListener('click', function () {
+      if (typeof loadSkills === 'function') loadSkills();
+    });
+  }
+});

@@ -858,17 +858,18 @@ def get_skill_manager() -> SkillManager:
 @app.get("/api/skills")
 async def list_skills():
     """List all loaded skills."""
-    mgr = get_skill_manager()
-    return {
-        "count": mgr.skill_count,
-        "skills": mgr.summary(),
-    }
+    try:
+        mgr = await asyncio.to_thread(get_skill_manager)
+        return {"count": mgr.skill_count, "skills": mgr.summary()}
+    except Exception as e:
+        logger.error("Skills load failed: %s", e)
+        return {"count": 0, "skills": [], "error": str(e)}
 
 
 @app.get("/api/skills/{skill_name}")
 async def get_skill(skill_name: str):
     """Get details for a specific skill."""
-    mgr = get_skill_manager()
+    mgr = await asyncio.to_thread(get_skill_manager)
     skill = mgr.get_skill(skill_name)
     if skill is None:
         return JSONResponse({"error": f"Skill not found: {skill_name}"}, status_code=404)
@@ -894,7 +895,7 @@ async def reload_skills():
     """Force reload all skills (clears cache)."""
     global _skill_manager
     _skill_manager = None
-    mgr = get_skill_manager()
+    mgr = await asyncio.to_thread(get_skill_manager)
     return {"ok": True, "count": mgr.skill_count, "skills": mgr.summary()}
 
 

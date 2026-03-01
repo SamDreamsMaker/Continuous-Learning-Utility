@@ -103,15 +103,17 @@ function switchTab(tabName, btn) {
   const tabEl = document.getElementById('tab-' + tabName);
   if (tabEl) tabEl.classList.add('active');
 
-  // Init tab data on first switch
-  const initFns = {
-    tasks: initTasks,
-    heartbeat: initHeartbeat,
-    memory: initMemory,
-    schedules: initSchedules,
-    alerts: initAlerts,
-    costs: initCosts,
-    skills: initSkills,
+  // Init tab data on first switch (use window[] lookup to avoid ReferenceError
+  // if a tab's JS file fails to load — keeps other tabs functional)
+  const initFnNames = {
+    tasks: 'initTasks',
+    heartbeat: 'initHeartbeat',
+    memory: 'initMemory',
+    schedules: 'initSchedules',
+    alerts: 'initAlerts',
+    costs: 'initCosts',
+    skills: 'initSkills',
   };
-  if (initFns[tabName]) initFns[tabName]();
+  const fn = window[initFnNames[tabName]];
+  if (typeof fn === 'function') fn();
 }
