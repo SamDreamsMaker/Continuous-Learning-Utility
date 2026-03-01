@@ -50,7 +50,7 @@ function renderSkills(data) {
     const checksCount = (s.checks || []).length;
     const hasPrompt = s.has_prompt ? ' &#128196;' : '';
     const errorBadge = s.load_error ? ` <span class="badge err sm" title="${escHtml(s.load_error)}">err</span>` : '';
-    const publishBtn = (s.tier === 'user' || s.tier === 'registry')
+    const publishBtn = s.tier === 'user'
       ? `<button class="btn sm" onclick="publishSkill('${escHtml(s.name)}')" title="Publish to registry">&#8679;</button>`
       : '';
     return `<div class="skill-item">
