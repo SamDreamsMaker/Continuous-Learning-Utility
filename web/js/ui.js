@@ -111,6 +111,7 @@ function switchTab(tabName, btn) {
     schedules: initSchedules,
     alerts: initAlerts,
     costs: initCosts,
+    skills: initSkills,
   };
   if (initFns[tabName]) initFns[tabName]();
 }

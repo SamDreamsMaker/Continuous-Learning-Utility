@@ -58,6 +58,54 @@ class HeartbeatManager:
         self.config = config or HeartbeatConfig()
         self._status = HeartbeatStatus()
         self._auto_task_times: list[float] = []  # timestamps of auto-enqueued tasks
+        self._skill_checks: dict[str, object] = {}  # name -> run(project_path) -> CheckResult
+
+    def register_skill_checks(self, skill_manager) -> int:
+        """Register check contributions from a SkillManager.
+
+        Args:
+            skill_manager: SkillManager instance.
+
+        Returns:
+            Number of checks successfully registered.
+        """
+        import importlib.util
+
+        registered = 0
+        for manifest in skill_manager.skills:
+            for entry in manifest.checks:
+                module_path = os.path.join(manifest.skill_dir, entry.module)
+                if not os.path.isfile(module_path):
+                    logger.warning(
+                        "Skill '%s' check module not found: %s",
+                        manifest.name, module_path,
+                    )
+                    continue
+                try:
+                    spec = importlib.util.spec_from_file_location(
+                        f"_skill_check_{manifest.name}_{entry.name}", module_path
+                    )
+                    mod = importlib.util.module_from_spec(spec)
+                    spec.loader.exec_module(mod)
+                    run_fn = getattr(mod, "run", None)
+                    if run_fn is None:
+                        logger.warning(
+                            "Skill '%s' check '%s': module has no run() function",
+                            manifest.name, entry.name,
+                        )
+                        continue
+                    self._skill_checks[entry.name] = run_fn
+                    registered += 1
+                    logger.debug(
+                        "Registered skill check '%s' from skill '%s'",
+                        entry.name, manifest.name,
+                    )
+                except Exception as e:
+                    logger.warning(
+                        "Skill '%s': failed to load check '%s': %s",
+                        manifest.name, entry.name, e,
+                    )
+        return registered
 
     @property
     def status(self) -> dict:
@@ -113,10 +161,15 @@ class HeartbeatManager:
             ),
         }
 
-        # Only run checks that are in the config
+        # Include dynamically registered skill checks (wrapped with project_path)
+        for check_name, run_fn in self._skill_checks.items():
+            check_registry[check_name] = (lambda fn=run_fn: fn(project_path))
+
+        # Only run checks that are in the config (plus all skill checks)
+        config_names = set(self.config.checks) | set(self._skill_checks.keys())
         checks = [
             (name, check_registry[name])
-            for name in self.config.checks
+            for name in config_names
             if name in check_registry
         ]
 

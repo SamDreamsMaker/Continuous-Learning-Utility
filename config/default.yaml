@@ -85,3 +85,9 @@ paths:
   backup_dir: "backups"
   log_dir: "logs"
   prompts_dir: "prompts"
+
+skills:
+  enabled: true                  # Set to false to disable the entire skills system
+  user_dir: ""                   # Override user skill dir (default: ~/.clu/skills)
+  project_dir: ""                # Project-local skills dir (default: .clu/skills relative to project)
+  prompt_budget: 12000           # Max total chars from skill prompts per agent run

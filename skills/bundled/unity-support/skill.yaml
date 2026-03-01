@@ -1,0 +1,42 @@
+name: unity-support
+version: 1.0.0
+description: Unity/C# development context, compile checking, and best practices
+author: CLU Team
+tags: [unity, csharp, gamedev]
+
+requires:
+  os: [win32]
+  files: ["Assets/**/*.cs"]
+
+checks:
+  - module: checks/unity_compile_check.py
+    name: unity_compile_skill
+
+prompt:
+  file: prompt.md
+  budget: 4000
+  keywords:
+    - unity
+    - csharp
+    - monobehaviour
+    - gameobject
+    - prefab
+    - scene
+    - serializedfield
+    - inspector
+    - coroutine
+
+roles:
+  coder:
+    - validate_csharp
+  reviewer: []
+  tester: []
+
+tests:
+  - name: prompt_has_unity_context
+    type: prompt
+    input: {}
+    expect:
+      has_key: content
+      contains:
+        content: "Unity"

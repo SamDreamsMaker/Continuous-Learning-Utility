@@ -22,6 +22,7 @@ from orchestrator.providers.factory import create_provider
 from orchestrator.runner import AgentRunner
 from orchestrator.session import SessionManager
 from orchestrator import events as evt
+from skills.manager import SkillManager
 
 logger = logging.getLogger(__name__)
 
@@ -44,12 +45,15 @@ class AgentDaemon:
         session_mgr: SessionManager | None = None,
         poll_interval: float = DEFAULT_POLL_INTERVAL,
         stale_timeout: int = 600,
+        skill_manager: SkillManager | None = None,
+        schedules_path: str | None = None,
     ):
         self.config = config
         self.queue = queue or TaskQueue()
         self.session_mgr = session_mgr or SessionManager()
         self.poll_interval = poll_interval
         self.stale_timeout = stale_timeout
+        self.skill_manager = skill_manager or SkillManager.empty()
 
         self._running = False
         self._current_task: Task | None = None
@@ -70,7 +74,8 @@ class AgentDaemon:
             file_extensions=config.project_file_extensions,
         )
         self.heartbeat = HeartbeatManager(queue=self.queue, config=hb_config)
-        self.scheduler = TaskScheduler(queue=self.queue)
+        self.heartbeat.register_skill_checks(self.skill_manager)
+        self.scheduler = TaskScheduler(queue=self.queue, config_path=schedules_path)
         self.notifier = NotificationManager()
         self._project_path: str | None = None
 
@@ -172,6 +177,7 @@ class AgentDaemon:
                 role=role,
                 task_queue=self.queue,
                 scheduler=self.scheduler,
+                skill_manager=self.skill_manager,
             )
 
             result = await runner.run(task=task_text)
@@ -263,12 +269,13 @@ def main():
         print(f"  Project: {args.project}")
     print(f"  Press Ctrl+C to stop\n")
 
-    daemon = AgentDaemon(config=config, poll_interval=args.poll_interval)
-    # Load schedules
     sched_path = os.path.join(agent_dir, args.schedules)
-    if os.path.isfile(sched_path):
-        daemon.scheduler = TaskScheduler(queue=daemon.queue, config_path=sched_path)
-        print(f"  Loaded {len(daemon.scheduler.schedules)} schedules")
+    daemon = AgentDaemon(
+        config=config,
+        poll_interval=args.poll_interval,
+        schedules_path=sched_path if os.path.isfile(sched_path) else None,
+    )
+    print(f"  Loaded {len(daemon.scheduler.schedules)} schedules")
     # Load notification channels from config
     import yaml
     try:
