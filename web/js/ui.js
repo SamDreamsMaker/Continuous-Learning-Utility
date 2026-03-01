@@ -53,10 +53,13 @@ function updateBudget(iter, maxIter, tokens, maxTokens) {
 
 function updateModifiedFiles(files) {
   const el = document.getElementById('modified-list');
+  const strip = el && el.closest('.modified-strip');
   if (!files.length) {
-    el.innerHTML = '<div style="font-size:12px;color:var(--text2);">None</div>';
+    if (strip) strip.classList.remove('visible');
+    if (el) el.innerHTML = '';
     return;
   }
+  if (strip) strip.classList.add('visible');
   el.innerHTML = files.map(f => `<div class="modified-item">${escHtml(f)}</div>`).join('');
 }
 

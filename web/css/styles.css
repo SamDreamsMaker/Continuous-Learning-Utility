@@ -1064,7 +1064,7 @@ body {
   color: var(--text2);
 }
 
-.budget-item .meter-bar { width: 80px; }
+.budget-item .meter-bar { width: 120px; }
 
 .budget-inputs {
   margin-left: auto;
@@ -1090,9 +1090,11 @@ body {
   flex-shrink: 0;
   border-top: 1px solid var(--border);
   min-height: 22px;
-  display: flex;
+  display: none;
   align-items: center;
 }
+
+.modified-strip.visible { display: flex; }
 
 /* ===== CONFIG PAGE ===== */
 .config-grid {

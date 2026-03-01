@@ -45,7 +45,7 @@
     </div>
     <div class="budget-strip">
       <div class="budget-item">
-        <span>Iter</span>
+        <span>Iterations</span>
         <div class="meter-bar"><div class="meter-fill" id="iter-fill"></div></div>
         <span id="iter-label">0 / 50</span>
       </div>
@@ -53,11 +53,6 @@
         <span>Tokens</span>
         <div class="meter-bar"><div class="meter-fill" id="token-fill"></div></div>
         <span id="token-label">0 / 500K</span>
-      </div>
-      <div class="budget-inputs">
-        <input type="number" id="cfg-iterations" placeholder="50" />
-        <input type="number" id="cfg-tokens" placeholder="500000" />
-        <button class="btn sm" onclick="updateBudgetConfig()">Set</button>
       </div>
     </div>
     <div class="modified-strip">
@@ -191,6 +186,22 @@
       <section class="config-section">
         <h2>Sessions <button class="btn sm" onclick="loadSessions()" style="margin-left:auto;">Refresh</button></h2>
         <div id="sessions-list" style="max-height:200px;overflow-y:auto;"></div>
+      </section>
+
+      <!-- Budget Limits -->
+      <section class="config-section">
+        <h2>Budget Limits</h2>
+        <div class="provider-config">
+          <div>
+            <label>Max Iterations</label>
+            <input type="number" id="cfg-iterations" placeholder="50" />
+          </div>
+          <div>
+            <label>Max Tokens</label>
+            <input type="number" id="cfg-tokens" placeholder="500000" />
+          </div>
+          <button class="btn" onclick="updateBudgetConfig()">Apply</button>
+        </div>
       </section>
 
       <!-- Rollback -->
