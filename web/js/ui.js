@@ -1,19 +1,3 @@
-// ===== PANEL TOGGLING =====
-function togglePanel() {
-  document.getElementById('panel').classList.toggle('open');
-  updateOverlay();
-}
-
-function closeAllPanels() {
-  document.getElementById('panel').classList.remove('open');
-  updateOverlay();
-}
-
-function updateOverlay() {
-  const pOpen = document.getElementById('panel').classList.contains('open');
-  document.getElementById('panel-overlay').classList.toggle('visible', pOpen);
-}
-
 // ===== UI HELPERS =====
 function setRunning(running) {
   isRunning = running;
@@ -83,19 +67,19 @@ function setBadge(id, text, cls) {
     (el.classList.contains('badge-secondary') ? ' badge-secondary' : '');
 }
 
-// ===== TAB SWITCHING =====
-function switchTab(tabName, btn) {
-  // Update tab buttons
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+// ===== PAGE NAVIGATION =====
+function switchPage(pageName, btn) {
+  // Update nav buttons
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
 
-  // Update tab content
-  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-  const tabEl = document.getElementById('tab-' + tabName);
-  if (tabEl) tabEl.classList.add('active');
+  // Update pages
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  const pageEl = document.getElementById('page-' + pageName);
+  if (pageEl) pageEl.classList.add('active');
 
-  // Init tab data on first switch (use window[] lookup to avoid ReferenceError
-  // if a tab's JS file fails to load — keeps other tabs functional)
+  // Init page data on first switch (use window[] lookup to avoid ReferenceError
+  // if a page's JS file fails to load — keeps other pages functional)
   const initFnNames = {
     tasks: 'initTasks',
     heartbeat: 'initHeartbeat',
@@ -104,7 +88,11 @@ function switchTab(tabName, btn) {
     alerts: 'initAlerts',
     costs: 'initCosts',
     skills: 'initSkills',
+    config: 'loadSessions',
   };
-  const fn = window[initFnNames[tabName]];
+  const fn = window[initFnNames[pageName]];
   if (typeof fn === 'function') fn();
 }
+
+// Backward-compat alias
+function switchTab(tabName, btn) { switchPage(tabName, btn); }
