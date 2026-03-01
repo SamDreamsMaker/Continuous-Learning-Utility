@@ -28,6 +28,8 @@ from daemon.alerts import AlertManager
 from daemon.scheduler import TaskScheduler
 from daemon.webhooks import WebhookHandler
 from daemon import service as daemon_service
+from skills.loader import SkillLoader
+from skills.manager import SkillManager
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +43,7 @@ AGENT_DIR = os.path.dirname(WEB_DIR)
 _config: AgentConfig | None = None
 _project_path: str | None = None
 _provider: LLMProvider | None = None
+_skill_manager: SkillManager | None = None
 
 
 def get_config() -> AgentConfig:
@@ -822,6 +825,106 @@ async def get_costs():
         "total_prompt_tokens": total_prompt,
         "total_completion_tokens": total_completion,
         "sessions": sessions_data,
+    }
+
+
+# ---- Skills endpoints ----
+
+def get_skill_manager() -> SkillManager:
+    """Get or initialize the global SkillManager."""
+    global _skill_manager
+    if _skill_manager is None:
+        config = get_config()
+        if not config.skills_enabled:
+            _skill_manager = SkillManager.empty()
+        else:
+            proj_skills_dir = None
+            project = get_project_path()
+            if project and config.skills_project_dir:
+                proj_skills_dir = os.path.join(project, config.skills_project_dir)
+            elif project:
+                candidate = os.path.join(project, ".clu", "skills")
+                if os.path.isdir(candidate):
+                    proj_skills_dir = candidate
+
+            loader = SkillLoader(
+                user_skills_dir=config.skills_user_dir or None,
+                project_skills_dir=proj_skills_dir,
+            )
+            _skill_manager = SkillManager.from_loader(loader)
+    return _skill_manager
+
+
+@app.get("/api/skills")
+async def list_skills():
+    """List all loaded skills."""
+    mgr = get_skill_manager()
+    return {
+        "count": mgr.skill_count,
+        "skills": mgr.summary(),
+    }
+
+
+@app.get("/api/skills/{skill_name}")
+async def get_skill(skill_name: str):
+    """Get details for a specific skill."""
+    mgr = get_skill_manager()
+    skill = mgr.get_skill(skill_name)
+    if skill is None:
+        return JSONResponse({"error": f"Skill not found: {skill_name}"}, status_code=404)
+    # Return full manifest details
+    items = mgr.summary()
+    for item in items:
+        if item["name"] == skill_name:
+            item["test_count"] = len(skill.tests)
+            item["checks"] = [c.name for c in skill.checks]
+            item["templates"] = [t.name for t in skill.templates]
+            item["requirements"] = {
+                "os": skill.requirements.os,
+                "binaries": skill.requirements.binaries,
+                "files": skill.requirements.files,
+                "skills": skill.requirements.skills,
+            }
+            return item
+    return JSONResponse({"error": "Skill metadata missing"}, status_code=500)
+
+
+@app.post("/api/skills/reload")
+async def reload_skills():
+    """Force reload all skills (clears cache)."""
+    global _skill_manager
+    _skill_manager = None
+    mgr = get_skill_manager()
+    return {"ok": True, "count": mgr.skill_count, "skills": mgr.summary()}
+
+
+@app.post("/api/skills/{skill_name}/test")
+async def test_skill(skill_name: str):
+    """Run declarative tests for a specific skill."""
+    from skills.test_runner import SkillTestRunner
+    mgr = get_skill_manager()
+    skill = mgr.get_skill(skill_name)
+    if skill is None:
+        return JSONResponse({"error": f"Skill not found: {skill_name}"}, status_code=404)
+    runner = SkillTestRunner(project_path=get_project_path() or os.getcwd())
+    report = runner.run_skill(skill)
+    return report.to_dict()
+
+
+@app.post("/api/skills/test/all")
+async def test_all_skills():
+    """Run declarative tests for all loaded skills."""
+    from skills.test_runner import SkillTestRunner
+    mgr = get_skill_manager()
+    runner = SkillTestRunner(project_path=get_project_path() or os.getcwd())
+    reports = runner.run_skills(mgr.skills)
+    total_passed = sum(r.passed for r in reports)
+    total_failed = sum(r.failed for r in reports)
+    return {
+        "total_passed": total_passed,
+        "total_failed": total_failed,
+        "success": total_failed == 0,
+        "reports": [r.to_dict() for r in reports],
     }
 
 

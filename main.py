@@ -103,6 +103,81 @@ def run_interactive(config: AgentConfig, project_path: str):
         run_single_task(agent, task, project_path)
 
 
+def _run_skills_command(command: str, config_path: str, project_path: str | None):
+    """Execute a skills CLI command."""
+    from orchestrator.config import AgentConfig
+    from skills.loader import SkillLoader
+    from skills.manager import SkillManager
+
+    # Load config for skills settings
+    try:
+        config = AgentConfig.from_yaml(config_path)
+    except Exception:
+        config = AgentConfig()
+
+    if not config.skills_enabled:
+        print("Skills are disabled in config (skills.enabled=false).")
+        return
+
+    # Resolve project-local skills dir
+    proj_skills_dir = None
+    if project_path and config.skills_project_dir:
+        proj_skills_dir = os.path.join(project_path, config.skills_project_dir)
+    elif project_path:
+        candidate = os.path.join(project_path, ".clu", "skills")
+        if os.path.isdir(candidate):
+            proj_skills_dir = candidate
+
+    loader = SkillLoader(
+        user_skills_dir=config.skills_user_dir or None,
+        project_skills_dir=proj_skills_dir,
+    )
+    manager = SkillManager.from_loader(loader)
+
+    if command == "list":
+        if manager.skill_count == 0:
+            print("No skills loaded.")
+            return
+        print(f"Loaded skills ({manager.skill_count}):\n")
+        for item in manager.summary():
+            tier_tag = f"[{item['tier']}]"
+            tools_str = ", ".join(item["tools"]) if item["tools"] else "none"
+            print(f"  {item['name']} v{item['version']} {tier_tag}")
+            print(f"    {item['description'] or '(no description)'}")
+            print(f"    Tools: {tools_str}")
+            if item["tags"]:
+                print(f"    Tags:  {', '.join(item['tags'])}")
+            print()
+
+    elif command == "test":
+        from skills.test_runner import SkillTestRunner
+
+        runner = SkillTestRunner(project_path=project_path or os.getcwd())
+        reports = runner.run_skills(manager.skills)
+
+        if not reports:
+            print("No skills with test cases found.")
+            return
+
+        total_passed = total_failed = 0
+        for report in reports:
+            total_passed += report.passed
+            total_failed += report.failed
+            status = "PASS" if report.success else "FAIL"
+            print(f"[{status}] {report.skill_name}: {report.passed}/{report.total} passed")
+            for r in report.results:
+                icon = "  OK " if r.passed else "  FAIL"
+                line = f"{icon}  {r.test_name} ({r.duration_ms:.0f}ms)"
+                if not r.passed and r.error:
+                    line += f" — {r.error}"
+                print(line)
+            print()
+
+        print(f"Results: {total_passed} passed, {total_failed} failed")
+        if total_failed > 0:
+            sys.exit(1)
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="CLU — Continuous Learning Utility"
@@ -148,6 +223,12 @@ def main():
         "--verbose", action="store_true",
         help="Print logs to console in addition to log file",
     )
+    parser.add_argument(
+        "--skills",
+        choices=["list", "test"],
+        metavar="COMMAND",
+        help="Skills commands: 'list' to show loaded skills, 'test' to run skill tests",
+    )
 
     args = parser.parse_args()
 
@@ -155,6 +236,11 @@ def main():
     agent_dir = os.path.dirname(os.path.abspath(__file__))
     config_path = os.path.join(agent_dir, args.config) if not os.path.isabs(args.config) else args.config
     project_path = os.path.abspath(args.project) if args.project else None
+
+    # Skills commands (no project required)
+    if args.skills:
+        _run_skills_command(args.skills, config_path, args.project)
+        return
 
     # Daemon management (no project required)
     if args.daemon:

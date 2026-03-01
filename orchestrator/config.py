@@ -70,6 +70,12 @@ class AgentConfig:
     log_dir: str = "logs"
     prompts_dir: str = "prompts"
 
+    # Skills settings
+    skills_enabled: bool = True
+    skills_user_dir: str = ""        # empty = default ~/.clu/skills
+    skills_project_dir: str = ""     # empty = auto-detect .clu/skills in project
+    skills_prompt_budget: int = 12_000
+
     @classmethod
     def from_yaml(cls, path: str) -> "AgentConfig":
         """Load configuration from a YAML file."""
@@ -89,6 +95,7 @@ class AgentConfig:
         heartbeat = data.get("heartbeat", {})
         tools_section = data.get("tools", {})
         paths = data.get("paths", {})
+        skills_section = data.get("skills", {})
 
         return cls(
             project_name=project.get("name", cls.project_name),
@@ -134,6 +141,10 @@ class AgentConfig:
             backup_dir=paths.get("backup_dir", cls.backup_dir),
             log_dir=paths.get("log_dir", cls.log_dir),
             prompts_dir=paths.get("prompts_dir", cls.prompts_dir),
+            skills_enabled=skills_section.get("enabled", cls.skills_enabled),
+            skills_user_dir=skills_section.get("user_dir", cls.skills_user_dir),
+            skills_project_dir=skills_section.get("project_dir", cls.skills_project_dir),
+            skills_prompt_budget=skills_section.get("prompt_budget", cls.skills_prompt_budget),
         )
 
 

@@ -1,0 +1,34 @@
+name: todo-tracker
+version: 1.0.0
+description: Scans source files for TODO, FIXME, HACK, and NOTE markers across any language
+author: CLU Team
+tags: [productivity, todos, markers]
+
+checks:
+  - module: todo_check.py
+    name: todo_markers_skill
+
+prompt:
+  file: prompt.md
+  budget: 1500
+  keywords:
+    - todo
+    - fixme
+    - hack
+    - technical debt
+    - cleanup
+
+tests:
+  - name: check_runs_cleanly
+    type: check
+    check: todo_markers_skill
+    input: {}
+    expect:
+      has_key: ok
+  - name: prompt_has_todo_context
+    type: prompt
+    input: {}
+    expect:
+      has_key: content
+      contains:
+        content: "TODO"

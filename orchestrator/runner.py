@@ -19,6 +19,7 @@ from orchestrator import events as evt
 from tools.registry import ToolRegistry
 from sandbox.path_validator import PathValidator
 from sandbox.backup_manager import BackupManager
+from skills.manager import SkillManager
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +69,7 @@ class AgentRunner:
         role: str | None = None,
         task_queue=None,
         scheduler=None,
+        skill_manager: SkillManager | None = None,
     ):
         self.config = config
         # Wrap provider with resilience (retry + circuit breaker)
@@ -79,11 +81,13 @@ class AgentRunner:
         self.session_mgr = session_mgr or SessionManager()
         self.memory = MemoryManager()
         self.role = role  # None = default (coder), or "coder"/"reviewer"/"tester"
+        self.skill_manager = skill_manager or SkillManager.empty()
 
         self.tools = ToolRegistry()
         self.tools.register_all_defaults(enabled_tools=config.enabled_tools)
         self._setup_delegate_tool(task_queue)
         self._setup_schedules_tool(scheduler)
+        self.skill_manager.register_tools(self.tools, role=self.role)
         self.sandbox = PathValidator(
             allowed_prefix=config.allowed_path_prefix.strip("/").strip("\\"),
             blocked_prefixes=[p.strip("/").strip("\\") for p in config.blocked_prefixes],
@@ -132,8 +136,8 @@ class AgentRunner:
             if on_event:
                 await on_event(event)
 
-        # Build system prompt
-        system_prompt = self._build_system_prompt()
+        # Build system prompt (with contextual skill injections)
+        system_prompt = self._build_system_prompt_for_task(task)
         self.history.set_system(system_prompt)
 
         # Resume from previous session if requested
@@ -428,6 +432,14 @@ class AgentRunner:
             prompt += f"\n{memory_ctx}"
 
         return prompt
+
+    def _build_system_prompt_for_task(self, task: str) -> str:
+        """Build system prompt with contextual skill injections for a specific task."""
+        base = self._build_system_prompt()
+        skill_ctx = self.skill_manager.get_prompt_injections(task)
+        if skill_ctx:
+            return f"{base}\n\n{skill_ctx}"
+        return base
 
     def _is_false_completion(self, content: str) -> bool:
         """Detect when the LLM responds with intent text instead of using tools."""

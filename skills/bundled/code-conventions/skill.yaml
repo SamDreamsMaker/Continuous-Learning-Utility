@@ -1,0 +1,26 @@
+name: code-conventions
+version: 1.0.0
+description: Generic code quality guidelines — small functions, clear naming, tests, docs
+author: CLU Team
+tags: [quality, conventions, refactoring]
+
+prompt:
+  file: prompt.md
+  budget: 2000
+  keywords:
+    - refactor
+    - clean
+    - convention
+    - naming
+    - readability
+    - code quality
+    - best practice
+    - maintainable
+
+tests:
+  - name: prompt_has_conventions
+    type: prompt
+    input: {}
+    expect:
+      has_key: content
+      true_keys: [content]
