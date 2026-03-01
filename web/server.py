@@ -929,6 +929,152 @@ async def test_all_skills():
     }
 
 
+# ---- Skills: pattern analysis & generation ----
+
+@app.get("/api/skills/candidates")
+async def list_skill_candidates():
+    """Analyze task outcome history and return skill generation candidates."""
+    from orchestrator.outcome_tracker import OutcomeTracker
+    from skills.pattern_analyzer import PatternAnalyzer, build_existing_skill_keywords
+
+    config = get_config()
+
+    def _analyze():
+        tracker = OutcomeTracker()
+        outcomes = tracker.load()
+        if not outcomes:
+            return {"total_outcomes": 0, "candidates": []}
+
+        mgr = get_skill_manager()
+        existing_kws = build_existing_skill_keywords(mgr)
+
+        analyzer = PatternAnalyzer(
+            outcomes=outcomes,
+            existing_skill_keywords=existing_kws,
+            min_occurrences=config.skills_generate_min_occurrences,
+            min_success_rate=config.skills_generate_min_success_rate,
+        )
+        candidates = analyzer.find_candidates()
+        return {
+            "total_outcomes": len(outcomes),
+            "candidates": [c.to_dict() for c in candidates],
+        }
+
+    return await asyncio.to_thread(_analyze)
+
+
+@app.post("/api/skills/generate")
+async def generate_skill(body: dict):
+    """Generate a new skill from a candidate (by index in the candidates list).
+
+    Body: {"candidate_index": 0}
+    """
+    from orchestrator.outcome_tracker import OutcomeTracker
+    from skills.pattern_analyzer import PatternAnalyzer, build_existing_skill_keywords
+    from skills.generator import SkillGenerator
+
+    config = get_config()
+    candidate_idx = int(body.get("candidate_index", 0))
+
+    def _generate():
+        tracker = OutcomeTracker()
+        outcomes = tracker.load()
+        if not outcomes:
+            return {"ok": False, "error": "No outcome data available yet"}
+
+        mgr = get_skill_manager()
+        existing_kws = build_existing_skill_keywords(mgr)
+        analyzer = PatternAnalyzer(
+            outcomes=outcomes,
+            existing_skill_keywords=existing_kws,
+            min_occurrences=config.skills_generate_min_occurrences,
+            min_success_rate=config.skills_generate_min_success_rate,
+        )
+        candidates = analyzer.find_candidates()
+        if not candidates:
+            return {"ok": False, "error": "No skill candidates found"}
+        if candidate_idx >= len(candidates):
+            return {"ok": False, "error": f"Candidate index {candidate_idx} out of range ({len(candidates)} candidates)"}
+
+        candidate = candidates[candidate_idx]
+
+        # Build a minimal provider from current config
+        try:
+            from orchestrator.providers.factory import create_provider
+            provider = create_provider(
+                config.provider, config.api_base, config.api_key, config.model,
+            )
+        except Exception as e:
+            return {"ok": False, "error": f"Cannot create LLM provider: {e}"}
+
+        gen = SkillGenerator(provider=provider)
+        result = gen.generate(candidate)
+
+        if result.ok:
+            # Invalidate SkillManager so the new skill appears immediately
+            global _skill_manager
+            _skill_manager = None
+
+        return result.to_dict()
+
+    return await asyncio.to_thread(_generate)
+
+
+# ---- Skills: registry (publish + sync) ----
+
+@app.get("/api/skills/registry/status")
+async def registry_status():
+    """Return local registry cache state."""
+    from skills.registry import get_sync_status
+    return await asyncio.to_thread(get_sync_status)
+
+
+@app.post("/api/skills/registry/sync")
+async def registry_sync():
+    """Pull new skills from the community registry."""
+    config = get_config()
+
+    def _sync():
+        from skills.registry import sync as do_sync
+        result = do_sync(
+            registry_url=config.skills_registry_url,
+            skill_manager_invalidate_fn=lambda: globals().update(_skill_manager=None),
+        )
+        return result.to_dict()
+
+    return await asyncio.to_thread(_sync)
+
+
+@app.post("/api/skills/{skill_name}/publish")
+async def publish_skill(skill_name: str):
+    """Publish a locally generated skill to the community registry (creates a PR)."""
+    config = get_config()
+    if not config.skills_github_token:
+        return JSONResponse(
+            {"error": "github_token not configured in skills.github_token"},
+            status_code=400,
+        )
+
+    def _publish():
+        from skills.registry import publish as do_publish
+        mgr = get_skill_manager()
+        skill = mgr.get_skill(skill_name)
+        if skill is None:
+            return {"ok": False, "error": f"Skill not found: {skill_name}"}
+        pr_url = do_publish(
+            skill_dir=str(skill.skill_dir),
+            skill_name=skill_name,
+            github_token=config.skills_github_token,
+        )
+        return {"ok": True, "pr_url": pr_url}
+
+    try:
+        return await asyncio.to_thread(_publish)
+    except Exception as e:
+        logger.error("Publish skill '%s' failed: %s", skill_name, e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
 # ---- WebSocket for agent streaming ----
 
 @app.websocket("/ws/agent")

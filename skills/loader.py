@@ -1,4 +1,4 @@
-"""Skill loader — 3-tier discovery, validation, secret scanning, and dependency ordering."""
+"""Skill loader — 4-tier discovery, validation, secret scanning, and dependency ordering."""
 
 import logging
 import os
@@ -13,7 +13,8 @@ from skills.manifest import SkillManifest
 logger = logging.getLogger(__name__)
 
 # Tier ordering (higher = higher priority for deduplication)
-_TIER_PRIORITY = {"bundled": 0, "user": 1, "project": 2}
+# project > user > registry > bundled
+_TIER_PRIORITY = {"bundled": 0, "registry": 1, "user": 2, "project": 3}
 
 # --- Security patterns ---
 
@@ -53,12 +54,13 @@ _SCANNABLE_EXTENSIONS = {".py", ".yaml", ".yml", ".md", ".txt", ".toml", ".json"
 
 
 class SkillLoader:
-    """Discovers and loads skills from 3 tiers: bundled → user → project.
+    """Discovers and loads skills from 4 tiers: bundled → registry → user → project.
 
-    Tier resolution:
-    - Bundled: ``skills/bundled/`` (shipped with CLU)
-    - User:    ``~/.clu/skills/`` (user global installs)
-    - Project: ``<project>/.clu/skills/`` (project-local overrides)
+    Tier resolution (highest priority wins):
+    - Bundled:  ``skills/bundled/`` (shipped with CLU)
+    - Registry: ``~/.clu/registry-cache/`` (community skills, auto-synced)
+    - User:     ``~/.clu/skills/`` (user global installs)
+    - Project:  ``<project>/.clu/skills/`` (project-local overrides)
 
     When two tiers define the same skill name, the higher-priority tier wins.
     Load order respects declared skill dependencies (topological sort).
@@ -70,9 +72,12 @@ class SkillLoader:
         self,
         user_skills_dir: str | None = None,
         project_skills_dir: str | None = None,
+        registry_cache_dir: str | None = None,
     ):
         self.user_dir = user_skills_dir or os.path.expanduser("~/.clu/skills")
         self.project_dir = project_skills_dir  # None = not set
+        from skills.registry import registry_cache_dir as _default_cache_dir
+        self.registry_dir = registry_cache_dir or _default_cache_dir()
 
     # ------------------------------------------------------------------
     # Public API
@@ -87,8 +92,9 @@ class SkillLoader:
         """
         raw: list[SkillManifest] = []
 
-        # Load each tier
+        # Load each tier (lowest priority first)
         raw.extend(self._load_tier(self.BUNDLED_DIR, "bundled"))
+        raw.extend(self._load_tier(self.registry_dir, "registry"))
         raw.extend(self._load_tier(self.user_dir, "user"))
         if self.project_dir:
             raw.extend(self._load_tier(self.project_dir, "project"))

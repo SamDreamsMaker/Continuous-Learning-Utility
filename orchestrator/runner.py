@@ -254,6 +254,7 @@ class AgentRunner:
 
                 self._save_session(session_id, task)
                 self._log_memory(task, content)
+                self._record_outcome(task, session_id, success=True)
 
                 result = AgentResult(
                     success=True,
@@ -349,6 +350,7 @@ class AgentRunner:
         # Budget exhausted — save session for future resume
         self._save_session(session_id, task)
         self._log_memory(task, "Budget exhausted")
+        self._record_outcome(task, session_id, success=False)
 
         result = AgentResult(
             success=False,
@@ -378,6 +380,25 @@ class AgentRunner:
             budget_state=self.budget.status(),
             files_modified=self.backup.modified_files,
         )
+
+    def _record_outcome(self, task: str, session_id: str, success: bool) -> None:
+        """Record task outcome to outcomes.jsonl for pattern analysis."""
+        try:
+            from orchestrator.outcome_tracker import OutcomeTracker, extract_tool_names
+            tools_used = extract_tool_names(self.history._messages)
+            OutcomeTracker().record(
+                task=task,
+                tools_used=tools_used,
+                files_modified=self.backup.modified_files,
+                tokens=self.budget.total_tokens,
+                iterations=self.budget.iteration,
+                success=success,
+                session_id=session_id,
+                project_name=self.config.project_name,
+                skill_names=[s.name for s in self.skill_manager.skills],
+            )
+        except Exception as e:
+            logger.warning("Failed to record outcome: %s", e)
 
     def _log_memory(self, task: str, result_summary: str):
         """Log activity to persistent memory."""

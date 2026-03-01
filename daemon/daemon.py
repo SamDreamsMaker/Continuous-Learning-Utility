@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 
 # Default poll interval when queue is empty
 DEFAULT_POLL_INTERVAL = 5  # seconds
+_LAST_REGISTRY_SYNC_KEY = "_last_registry_sync"
 
 
 class AgentDaemon:
@@ -60,6 +61,7 @@ class AgentDaemon:
         self._started_at: float | None = None
         self._tasks_completed = 0
         self._tasks_failed = 0
+        self._last_registry_sync: float = 0.0
 
         # Heartbeat
         hb_config = HeartbeatConfig(
@@ -146,6 +148,9 @@ class AgentDaemon:
                         logger.info("Scheduler enqueued %d tasks", len(enqueued))
                         continue  # Process newly enqueued tasks immediately
 
+                # Run registry sync if enabled and due
+                await self._maybe_sync_registry()
+
                 await asyncio.sleep(self.poll_interval)
 
     async def _execute_task(self, task: Task):
@@ -214,6 +219,31 @@ class AgentDaemon:
             self.notifier.notify(f"Task #{task.id} crashed", str(e)[:200], "error")
         finally:
             self._current_task = None
+
+    async def _maybe_sync_registry(self) -> None:
+        """Sync community registry skills if enabled and the interval has elapsed."""
+        if not self.config.skills_registry_sync_enabled:
+            return
+        now = time.time()
+        if now - self._last_registry_sync < self.config.skills_registry_sync_interval:
+            return
+        self._last_registry_sync = now
+        logger.info("Registry sync starting (interval=%ds)", self.config.skills_registry_sync_interval)
+        try:
+            from skills.registry import sync as registry_sync
+            result = await asyncio.to_thread(
+                registry_sync,
+                self.config.skills_registry_url,
+                None,  # use default cache dir
+                lambda: setattr(self, "skill_manager", None),  # invalidate (daemon re-creates on next task)
+            )
+            if result.changed:
+                logger.info(
+                    "Registry sync: +%d added, ~%d updated, %d skipped",
+                    len(result.added), len(result.updated), len(result.skipped),
+                )
+        except Exception as e:
+            logger.error("Registry sync failed: %s", e)
 
     def stop(self):
         """Signal the daemon to stop after current task completes."""

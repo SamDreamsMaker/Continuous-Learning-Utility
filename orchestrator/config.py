@@ -75,6 +75,17 @@ class AgentConfig:
     skills_user_dir: str = ""        # empty = default ~/.clu/skills
     skills_project_dir: str = ""     # empty = auto-detect .clu/skills in project
     skills_prompt_budget: int = 12_000
+    # Community registry
+    skills_registry_url: str = "https://github.com/clu-community/clu-skills"
+    skills_registry_sync_enabled: bool = False   # pull community skills automatically
+    skills_registry_sync_interval: int = 86400   # seconds between syncs (24h)
+    # Auto-generation
+    skills_auto_generate: bool = False           # generate skills from patterns
+    skills_auto_publish: bool = False            # push generated skills to registry
+    skills_github_token: str = ""               # PAT with repo scope (publishing)
+    skills_generate_after_n_tasks: int = 10     # analyze every N completed tasks
+    skills_generate_min_occurrences: int = 3    # pattern must appear this many times
+    skills_generate_min_success_rate: float = 0.7  # min success rate for candidate
 
     @classmethod
     def from_yaml(cls, path: str) -> "AgentConfig":
@@ -145,6 +156,15 @@ class AgentConfig:
             skills_user_dir=skills_section.get("user_dir", cls.skills_user_dir),
             skills_project_dir=skills_section.get("project_dir", cls.skills_project_dir),
             skills_prompt_budget=skills_section.get("prompt_budget", cls.skills_prompt_budget),
+            skills_registry_url=skills_section.get("registry_url", cls.skills_registry_url),
+            skills_registry_sync_enabled=skills_section.get("registry_sync_enabled", cls.skills_registry_sync_enabled),
+            skills_registry_sync_interval=skills_section.get("registry_sync_interval", cls.skills_registry_sync_interval),
+            skills_auto_generate=skills_section.get("auto_generate", cls.skills_auto_generate),
+            skills_auto_publish=skills_section.get("auto_publish", cls.skills_auto_publish),
+            skills_github_token=skills_section.get("github_token", cls.skills_github_token),
+            skills_generate_after_n_tasks=skills_section.get("generate_after_n_tasks", cls.skills_generate_after_n_tasks),
+            skills_generate_min_occurrences=skills_section.get("generate_min_occurrences", cls.skills_generate_min_occurrences),
+            skills_generate_min_success_rate=skills_section.get("generate_min_success_rate", cls.skills_generate_min_success_rate),
         )
 
 

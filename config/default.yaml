@@ -91,3 +91,16 @@ skills:
   user_dir: ""                   # Override user skill dir (default: ~/.clu/skills)
   project_dir: ""                # Project-local skills dir (default: .clu/skills relative to project)
   prompt_budget: 12000           # Max total chars from skill prompts per agent run
+
+  # Community registry (pull new skills from a shared GitHub repo)
+  registry_url: "https://github.com/clu-community/clu-skills"
+  registry_sync_enabled: false   # Set to true to auto-pull community skills
+  registry_sync_interval: 86400  # Seconds between syncs (default: 24h)
+
+  # Autonomous skill generation (agent learns from its own task history)
+  auto_generate: false           # Auto-generate skills after every N tasks
+  auto_publish: false            # Auto-push generated skills to registry (manual by default)
+  github_token: ""               # GitHub PAT with repo scope (required for publishing)
+  generate_after_n_tasks: 10     # Analyze patterns every N completed tasks
+  generate_min_occurrences: 3    # Pattern must appear at least this many times
+  generate_min_success_rate: 0.7 # Minimum success rate to consider a skill candidate
