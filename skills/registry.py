@@ -2,7 +2,7 @@
 
 Uses only Python stdlib (urllib) — no external dependencies required.
 
-Registry format (GitHub repo: clu-community/clu-skills):
+Registry format (GitHub repo: Continuous-Learning-Utility/clu-skills):
     registry.json          — index with all skills + SHA-256 hashes
     skills/<name>/
         skill.yaml

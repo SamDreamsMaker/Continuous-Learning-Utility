@@ -93,7 +93,7 @@ skills:
   prompt_budget: 12000           # Max total chars from skill prompts per agent run
 
   # Community registry (pull new skills from a shared GitHub repo)
-  registry_url: "https://github.com/clu-community/clu-skills"
+  registry_url: "https://github.com/Continuous-Learning-Utility/clu-skills"
   registry_sync_enabled: false   # Set to true to auto-pull community skills
   registry_sync_interval: 86400  # Seconds between syncs (default: 24h)
 
