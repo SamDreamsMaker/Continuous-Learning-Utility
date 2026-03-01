@@ -171,6 +171,7 @@
       </button>
       <button class="tab-btn" data-tab="memory" onclick="switchTab('memory', this)">Mem</button>
       <button class="tab-btn" data-tab="costs" onclick="switchTab('costs', this)">Costs</button>
+      <button class="tab-btn" data-tab="skills" onclick="switchTab('skills', this)">Skills</button>
     </div>
 
     <!-- Tab: Logs (default) -->
@@ -238,6 +239,13 @@
       </div>
     </div>
 
+    <!-- Tab: Skills -->
+    <div class="tab-content" id="tab-skills">
+      <div class="panel-section">
+        <div id="skills-content"><div class="empty-state">Loading...</div></div>
+      </div>
+    </div>
+
     <div class="panel-section">
       <button class="btn danger" onclick="rollback()" style="width:100%;">Rollback last session</button>
     </div>
@@ -269,6 +277,7 @@
 <script src="/js/schedules.js"></script>
 <script src="/js/alerts.js"></script>
 <script src="/js/costs.js"></script>
+<script src="/js/skills.js"></script>
 <script src="/js/websocket.js"></script>
 <script src="/js/main.js"></script>
 </body>

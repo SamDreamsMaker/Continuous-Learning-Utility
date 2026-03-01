@@ -1019,6 +1019,43 @@ body {
 
 .cost-sessions h4 { font-size: 11px; color: var(--text2); margin-bottom: 4px; }
 
+/* ===== SKILLS ===== */
+.skills-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  font-size: 11px;
+  color: var(--text2);
+}
+.skills-header .btn { margin-left: auto; }
+.skill-budget { color: var(--text2); font-size: 10px; }
+
+.skill-item {
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+}
+.skill-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 2px;
+}
+.skill-name { font-weight: 600; color: var(--text); }
+.skill-ver { color: var(--text2); font-size: 10px; margin-left: 2px; }
+.skill-desc { color: var(--text2); font-size: 10px; margin-bottom: 3px; }
+.skill-meta { display: flex; gap: 10px; color: var(--text2); font-size: 10px; margin-bottom: 2px; }
+.skill-tags { display: flex; flex-wrap: wrap; gap: 3px; }
+.skill-tag {
+  background: rgba(255,255,255,0.06);
+  border-radius: 3px;
+  padding: 1px 5px;
+  font-size: 9px;
+  color: var(--text2);
+}
+.badge.sm { font-size: 9px; padding: 1px 5px; }
+
 /* ===== RESPONSIVE ===== */
 
 /* Tablet: < 1200px - collapsible panels */

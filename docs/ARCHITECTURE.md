@@ -1,7 +1,7 @@
 # CLU — Architecture & Internal Reference
 
 > Exhaustive technical documentation for contributors and developers.
-> Updated: 2026-02-28
+> Updated: 2026-03-01
 
 ## 1. Overview
 
@@ -78,6 +78,18 @@ CLU/
 │       ├── anthropic_provider.py    # Claude models (via anthropic SDK)
 │       └── google_provider.py       # Gemini models (via google-genai SDK)
 │
+├── skills/                          # Extensible skills system
+│   ├── __init__.py
+│   ├── exceptions.py                # SkillLoadError, SkillIntegrityError, SkillRequirementError
+│   ├── manifest.py                  # SkillManifest dataclass + SHA-256 integrity + keyword matching
+│   ├── loader.py                    # SkillLoader: 3-tier discovery, secret scan, injection detect
+│   ├── manager.py                   # SkillManager: tool registration, prompt injection, summary
+│   ├── test_runner.py               # SkillTestRunner: declarative test execution
+│   └── bundled/                     # Skills shipped with CLU
+│       ├── unity-support/           # Unity/C# coding guidelines (win32 only, requires Assets/)
+│       ├── todo-tracker/            # TODO/FIXME/HACK scanner across all source languages
+│       └── code-conventions/        # Generic code quality guidelines (prompt injection)
+│
 ├── tools/                           # 12 LLM tools
 │   ├── base.py                      # BaseTool abstract class (to_openai_schema)
 │   ├── registry.py                  # ToolRegistry + lazy import via TOOL_MAP
@@ -121,10 +133,10 @@ CLU/
 │   └── backup_manager.py            # BackupManager (timestamped backup + rollback)
 │
 ├── web/                             # Web dashboard
-│   ├── server.py                    # FastAPI + WebSocket (40+ REST endpoints)
-│   ├── index.html                   # Main HTML (7-tab panel layout)
+│   ├── server.py                    # FastAPI + WebSocket (45+ REST endpoints incl. /api/skills/*)
+│   ├── index.html                   # Main HTML (8-tab panel layout)
 │   ├── css/styles.css               # Dark theme, responsive, tabs, components
-│   └── js/                          # 15 frontend modules
+│   └── js/                          # 16 frontend modules
 │       ├── utils.js                 # Globals, escHtml, formatMarkdown, copyText
 │       ├── store.js                 # ProviderConfigStore (observer pattern)
 │       ├── ui.js                    # Panel toggles, setRunning, addMsg, setBadge
@@ -140,7 +152,8 @@ CLU/
 │       ├── memory.js                # Memory browser with inline editing
 │       ├── schedules.js             # Schedule CRUD with cron preview
 │       ├── alerts.js                # Notification center (read/unread, badges)
-│       └── costs.js                 # Token consumption tracking
+│       ├── costs.js                 # Token consumption tracking
+│       └── skills.js                # Skills list, reload, per-skill test runner
 │
 ├── unity_plugin/                    # Unity Editor integration (optional)
 │   ├── AgentBridge.cs               # EditorWindow (HTTP communication with agent)
@@ -149,7 +162,7 @@ CLU/
 ├── docs/                            # Documentation
 │   └── ARCHITECTURE.md              # This file
 │
-├── tests/                           # 247 unit tests (pytest)
+├── tests/                           # 382 unit tests (pytest)
 │   ├── test_agent.py                # BudgetTracker + MessageHistory + loop detection
 │   ├── test_daemon.py               # TaskQueue + AgentDaemon + DaemonService
 │   ├── test_heartbeat.py            # All checks + HeartbeatManager
@@ -162,6 +175,12 @@ CLU/
 │   ├── test_scheduler.py            # CronParser + CronExpression + TaskScheduler
 │   ├── test_tools.py                # All tools (read, write, list, search)
 │   ├── test_manage_schedules.py     # ManageSchedulesTool CRUD operations
+│   ├── test_skill_manifest.py       # SkillManifest parsing, SHA-256, requirements gating (30)
+│   ├── test_skill_loader.py         # 3-tier discovery, secret scan, topo sort (26)
+│   ├── test_skill_manager.py        # Tool registration, prompt injection, budget (24)
+│   ├── test_skill_integrations.py   # HeartbeatManager + AgentDaemon with skills (9)
+│   ├── test_skill_config.py         # AgentConfig skills fields, backward compat (15)
+│   ├── test_skill_test_runner.py    # Declarative test execution, expectation engine (31)
 │   └── fixtures/
 │       ├── sample_valid.cs
 │       └── sample_invalid.cs
@@ -373,8 +392,9 @@ See `config/profiles/` for complete examples (Unity, Python).
 | Alerts | Notification center with read/unread tracking, badges |
 | Mem | Memory browser (knowledge categories) with inline editing |
 | Costs | Token consumption tracking (by session, aggregated) |
+| Skills | Loaded skills list (tier badge, tools, checks), reload, per-skill tests |
 
-### REST API (40+ endpoints)
+### REST API (45+ endpoints)
 
 ```
 POST /api/tasks                  Enqueue a task (with optional role)
@@ -420,6 +440,12 @@ POST /api/webhooks/github        GitHub webhook receiver
 POST /api/webhooks/generic       Generic webhook receiver
 POST /api/browse/folder          OS folder picker dialog
 POST /api/stop                   Stop running agent
+
+GET  /api/skills                 List all loaded skills with status
+GET  /api/skills/{name}          Skill details (tools, checks, requirements)
+POST /api/skills/reload          Hot-reload all skills from disk
+POST /api/skills/{name}/test     Run declarative tests for a specific skill
+POST /api/skills/test/all        Run all skill tests
 ```
 
 ### WebSocket
@@ -431,7 +457,77 @@ WS /ws/agent
            agent_response, agent_done, warning, error, info
 ```
 
-## 8. Notifications & Integrations
+## 8. Skills System
+
+The skills system is a 3-tier extensibility layer that lets contributors add tools, checks, prompts,
+and templates without modifying CLU's core code.
+
+### Skill Package Layout
+
+```
+my-skill/
+  skill.yaml          # Manifest (REQUIRED) — never injected into LLM context
+  prompt.md           # Optional context injected into system prompt (lazy, budgeted)
+  tools/              # Python modules extending BaseTool
+  checks/             # Python modules with run(project_path) → CheckResult
+  templates/          # Markdown task templates for the scheduler
+```
+
+### 3-Tier Discovery (priority: project > user > bundled)
+
+| Tier | Location | Trust |
+|------|----------|-------|
+| bundled | `skills/bundled/` | Highest — shipped with CLU |
+| user | `~/.clu/skills/` | Medium — per-user across all projects |
+| project | `<project>/.clu/skills/` | Highest runtime — per-project overrides |
+
+If two tiers define a skill with the same name, the higher-priority tier wins.
+
+### Security
+
+- **Secret scanning**: 8 regex patterns (OpenAI `sk-`, GitHub `ghp_/ghs_`, AWS `AKIA`,
+  Google `AIza`, Bearer tokens, generic `api_key=`…) checked against all skill files
+  before any module import. Skill rejected if matched.
+- **Prompt injection detection**: 8 patterns (`ignore previous instructions`, `act as`,
+  `you are now`, `DAN`, etc.) checked against `prompt.md`. Injections filtered out.
+- **SHA-256 integrity**: optional `integrity:` section in `skill.yaml` maps files to
+  expected hashes. Mismatch → `SkillIntegrityError` → skill not loaded.
+- **`skill.yaml` is never injected into LLM context** — only `prompt.md` is, selectively.
+
+### Prompt Injection (contextual + budgeted)
+
+Skills with a `prompt:` section are lazy-loaded. Before each agent run, `SkillManager`
+checks `is_prompt_relevant(task_text)` (keyword matching) and injects only relevant
+skill prompts. Two budget levels apply:
+- **Per-skill budget** (`budget:` in `prompt:` section, default 3000 chars)
+- **Global budget** (`skills.prompt_budget` in config, default 12K chars)
+
+### Bundled Skills
+
+| Skill | Type | Trigger keywords |
+|-------|------|-----------------|
+| `unity-support` | prompt + check | unity, csharp, monobehaviour, compile |
+| `todo-tracker` | prompt + check | todo, fixme, hack, technical debt |
+| `code-conventions` | prompt only | refactor, clean, naming, readability |
+
+### CLI Commands
+
+```bash
+python main.py --skills list     # List all discovered skills
+python main.py --skills test     # Run all declarative skill tests
+```
+
+### Config Fields
+
+```yaml
+skills:
+  enabled: true              # Set false to disable the entire system (zero-cost)
+  user_dir: ""               # Override ~/.clu/skills/
+  project_dir: ""            # Override .clu/skills/ relative to --project
+  prompt_budget: 12000       # Global max chars injected per agent run
+```
+
+## 10. Notifications & Integrations
 
 ### Notifications
 - **Desktop**: win10toast (Windows), osascript (macOS), notify-send (Linux)
@@ -443,7 +539,7 @@ WS /ws/agent
 - Push events filtering source files → auto-review tasks
 - HMAC-SHA256 signature verification
 
-## 9. Dependencies
+## 11. Dependencies
 
 **Required:**
 - Python 3.12+
@@ -464,7 +560,7 @@ anthropic>=0.50.0       # optional, for Claude
 google-genai>=1.0.0     # optional, for Gemini
 ```
 
-## 10. Getting Started
+## 12. Getting Started
 
 ```bash
 # Clone and setup
@@ -483,7 +579,7 @@ python main.py --web --config config/profiles/python.yaml
 python main.py --daemon start
 
 # Run tests
-python -m pytest tests/ -v    # 247 tests
+python -m pytest tests/ -v    # 382 tests
 ```
 
 ---

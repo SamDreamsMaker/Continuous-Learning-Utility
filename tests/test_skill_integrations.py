@@ -46,7 +46,7 @@ def _make_check_module(td: str, check_name: str, ok: bool = True, issues: list =
 class TestHeartbeatSkillChecks:
 
     def _make_heartbeat(self) -> HeartbeatManager:
-        queue = TaskQueue()
+        queue = TaskQueue(db_path=os.path.join(tempfile.mkdtemp(), "test.db"))
         return HeartbeatManager(queue=queue, config=HeartbeatConfig(enabled=False, checks=[]))
 
     def test_register_no_skills_returns_zero(self):
@@ -126,7 +126,7 @@ class TestHeartbeatSkillChecks:
         m = SkillManifest.from_yaml_dict(data, str(skill_dir), "bundled")
         mgr = SkillManager([m])
 
-        queue = TaskQueue()
+        queue = TaskQueue(db_path=str(tmp_path / "tick_test.db"))
         hb = HeartbeatManager(
             queue=queue,
             config=HeartbeatConfig(enabled=True, checks=[]),  # no built-in checks
@@ -159,7 +159,7 @@ class TestHeartbeatSkillChecks:
         m = SkillManifest.from_yaml_dict(data, str(skill_dir), "bundled")
         mgr = SkillManager([m])
 
-        queue = TaskQueue()
+        queue = TaskQueue(db_path=str(tmp_path / "issue_test.db"))
         hb = HeartbeatManager(
             queue=queue,
             config=HeartbeatConfig(
