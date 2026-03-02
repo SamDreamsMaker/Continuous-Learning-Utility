@@ -5,6 +5,7 @@ import logging
 import os
 
 from skills.manifest import SkillManifest
+from skills.state import SkillStateStore
 
 logger = logging.getLogger(__name__)
 
@@ -28,19 +29,28 @@ class SkillManager:
     # Total chars budget for all injected skill prompts per run
     DEFAULT_PROMPT_BUDGET = 12_000
 
-    def __init__(self, manifests: list[SkillManifest]):
+    def __init__(
+        self,
+        manifests: list[SkillManifest],
+        state_store: SkillStateStore | None = None,
+    ):
         self._manifests = manifests
         self._by_name: dict[str, SkillManifest] = {m.name: m for m in manifests}
+        self._state = state_store
 
     # ------------------------------------------------------------------
     # Factory
     # ------------------------------------------------------------------
 
     @classmethod
-    def from_loader(cls, loader) -> "SkillManager":
+    def from_loader(
+        cls,
+        loader,
+        state_store: SkillStateStore | None = None,
+    ) -> "SkillManager":
         """Discover and load skills from the given SkillLoader."""
         manifests = loader.discover()
-        return cls(manifests)
+        return cls(manifests, state_store=state_store)
 
     @classmethod
     def empty(cls) -> "SkillManager":
@@ -84,6 +94,8 @@ class SkillManager:
         effective_role = role or "coder"
 
         for manifest in self._manifests:
+            if self._state and not self._state.is_enabled(manifest.name):
+                continue
             available = set(manifest.get_role_tools(effective_role))
             for entry in manifest.tools:
                 if entry.name not in available:
@@ -170,6 +182,8 @@ class SkillManager:
         used = 0
 
         for manifest in self._manifests:
+            if self._state and not self._state.is_enabled(manifest.name):
+                continue
             if not manifest.is_prompt_relevant(task_text):
                 continue
 
@@ -202,6 +216,7 @@ class SkillManager:
         """Return a JSON-serializable summary of all loaded skills."""
         result = []
         for m in self._manifests:
+            enabled = self._state.is_enabled(m.name) if self._state else True
             result.append({
                 "name": m.name,
                 "version": m.version,
@@ -213,5 +228,6 @@ class SkillManager:
                 "checks": [c.name for c in m.checks],
                 "has_prompt": m.prompt is not None,
                 "load_error": m.load_error,
+                "enabled": enabled,
             })
         return result

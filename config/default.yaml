@@ -62,6 +62,7 @@ tools:
     - validate_csharp
     - unity_logs
     - manage_schedules
+    - manage_context
 
 heartbeat:
   enabled: true
@@ -101,7 +102,7 @@ skills:
   registry_sync_interval: 86400  # Seconds between syncs (default: 24h)
 
   # Autonomous skill generation (agent learns from its own task history)
-  auto_generate: false           # Auto-generate skills after every N tasks
+  auto_generate: true            # Auto-generate skills after every N tasks
   auto_publish: false            # Auto-push generated skills to registry (manual by default)
   github_token: ""               # GitHub PAT with repo scope (required for publishing)
   generate_after_n_tasks: 10     # Analyze patterns every N completed tasks

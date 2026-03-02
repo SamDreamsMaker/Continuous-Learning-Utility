@@ -27,11 +27,16 @@ function renderSkills(data) {
   if (!el) return;
 
   const skills = data.skills || [];
+  const autoGen = !!data.auto_generate;
+  const autoGenLabel = autoGen ? 'Auto-Gen: ON' : 'Auto-Gen: OFF';
+  const autoGenCls = autoGen ? 'ok' : '';
 
   const headerBtns = `
     <button class="btn sm" onclick="reloadSkills()">Reload</button>
     <button class="btn sm" onclick="analyzePatterns()">Analyze Patterns</button>
-    <button class="btn sm" onclick="syncRegistry()">Sync Registry</button>`;
+    <button class="btn sm" onclick="browseRegistry()">Browse Registry</button>
+    <button class="btn sm" onclick="syncRegistry()">Sync All</button>
+    <button class="btn sm ${autoGenCls}" id="autogen-btn" onclick="toggleAutoGen(${autoGen})">${autoGenLabel}</button>`;
 
   if (!skills.length) {
     el.innerHTML = `
@@ -50,16 +55,22 @@ function renderSkills(data) {
     const checksCount = (s.checks || []).length;
     const hasPrompt = s.has_prompt ? ' &#128196;' : '';
     const errorBadge = s.load_error ? ` <span class="badge err sm" title="${escHtml(s.load_error)}">err</span>` : '';
-    const publishBtn = (s.tier === 'user' || s.tier === 'registry')
+    const publishBtn = s.tier === 'user'
       ? `<button class="btn sm" onclick="publishSkill('${escHtml(s.name)}')" title="Publish to registry">&#8679;</button>`
       : '';
-    return `<div class="skill-item">
+    const enabled = s.enabled !== false;
+    const toggleBtn = enabled
+      ? `<button class="btn sm" onclick="disableSkill('${escHtml(s.name)}')" title="Disable skill">Disable</button>`
+      : `<button class="btn sm muted" onclick="enableSkill('${escHtml(s.name)}')" title="Enable skill">Enable</button>`;
+    const disabledCls = enabled ? '' : ' skill-disabled';
+    return `<div class="skill-item${disabledCls}">
       <div class="skill-row">
         <span class="skill-name">${escHtml(s.name)}</span>
         <span class="badge ${tierCls} sm">${escHtml(s.tier)}</span>
         <span class="skill-ver">v${escHtml(s.version)}</span>${hasPrompt}${errorBadge}
         <button class="btn sm" onclick="testSkill('${escHtml(s.name)}')" title="Run tests">&#9654;</button>
         ${publishBtn}
+        ${toggleBtn}
       </div>
       <div class="skill-desc">${escHtml(s.description || '')}</div>
       <div class="skill-meta">
@@ -75,7 +86,7 @@ function renderSkills(data) {
       <span>${skills.length} skill${skills.length !== 1 ? 's' : ''} loaded</span>
       ${headerBtns}
     </div>
-    <div class="skills-list">${skillsHtml}</div>`;
+    <div class="skills-list" id="skills-list">${skillsHtml}</div>`;
 }
 
 async function reloadSkills() {
@@ -87,6 +98,46 @@ async function reloadSkills() {
     loadSkills();
   } catch (e) {
     log('Skills reload failed: ' + e.message, 'err');
+  }
+}
+
+async function enableSkill(name) {
+  try {
+    await fetch(`/api/skills/${encodeURIComponent(name)}/enable`, { method: 'POST' });
+    log(`Skill enabled: ${name}`, 'ok');
+    loadSkills();
+  } catch (e) {
+    log(`Enable failed for ${name}: ` + e.message, 'err');
+  }
+}
+
+async function disableSkill(name) {
+  try {
+    await fetch(`/api/skills/${encodeURIComponent(name)}/disable`, { method: 'POST' });
+    log(`Skill disabled: ${name}`, 'warn');
+    loadSkills();
+  } catch (e) {
+    log(`Disable failed for ${name}: ` + e.message, 'err');
+  }
+}
+
+async function toggleAutoGen(currentState) {
+  const newState = !currentState;
+  try {
+    const r = await fetch('/api/skills/autogen', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled: newState }),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      log(`Auto-generation ${newState ? 'enabled' : 'disabled'}`, newState ? 'ok' : 'warn');
+      loadSkills();
+    } else {
+      log('Auto-gen toggle failed: ' + (d.error || 'unknown'), 'err');
+    }
+  } catch (e) {
+    log('Auto-gen toggle error: ' + e.message, 'err');
   }
 }
 
@@ -129,10 +180,8 @@ async function syncRegistry() {
   const el = document.getElementById('skills-content');
   const hdr = el && el.querySelector('.skills-header span');
   if (hdr) hdr.textContent = 'Syncing registry…';
-  else if (el) el.insertAdjacentHTML('beforeend',
-    '<div class="empty-state" id="sync-status">Syncing registry…</div>');
 
-  log('Syncing community registry...', 'tool');
+  log('Syncing all community registry skills...', 'tool');
   try {
     const r = await fetch('/api/skills/registry/sync', { method: 'POST' });
     const d = await r.json();
@@ -143,12 +192,100 @@ async function syncRegistry() {
     const msg = `Registry sync: +${added} added, ~${updated} updated, ${skipped} skipped`;
     log(msg, cls);
     if (hdr) hdr.textContent = msg;
-    else { const s = document.getElementById('sync-status'); if (s) s.textContent = msg; }
     if (added + updated > 0) loadSkills();
   } catch (e) {
     log('Registry sync error: ' + e.message, 'err');
     if (hdr) hdr.textContent = 'Registry sync error — see Logs';
-    else { const s = document.getElementById('sync-status'); if (s) s.textContent = 'Sync error'; }
+  }
+}
+
+async function browseRegistry() {
+  const el = document.getElementById('skills-content');
+  // Toggle: if catalog already shown, close it
+  const existingCatalog = document.getElementById('registry-catalog');
+  if (existingCatalog) {
+    existingCatalog.remove();
+    return;
+  }
+
+  const statusId = 'registry-browse-status';
+  const statusHtml = `<div class="empty-state" id="${statusId}">Fetching registry catalog…</div>`;
+  const existingList = el && el.querySelector('#skills-list');
+  if (existingList) existingList.insertAdjacentHTML('afterend', statusHtml);
+  else if (el) el.insertAdjacentHTML('beforeend', statusHtml);
+
+  log('Fetching community registry catalog...', 'tool');
+  try {
+    const r = await fetch('/api/skills/registry/available');
+    const d = await r.json();
+    const ps = document.getElementById(statusId);
+    if (ps) ps.remove();
+
+    if (d.error) {
+      log('Registry catalog error: ' + d.error, 'err');
+      return;
+    }
+
+    const available = d.skills || [];
+    log(`Registry catalog: ${available.length} skill(s) available`, 'ok');
+
+    const cardsHtml = available.map(s => {
+      const tagsList = (s.tags || []).map(t => `<span class="skill-tag">${escHtml(t)}</span>`).join('');
+      const installBtn = s.installed
+        ? (s.update_available
+            ? `<button class="btn sm warn" onclick="installSkill('${escHtml(s.name)}')">Update</button>`
+            : `<span class="badge ok sm">Installed</span>`)
+        : `<button class="btn sm" onclick="installSkill('${escHtml(s.name)}')">Install</button>`;
+      const installedNote = s.installed && s.installed_version
+        ? ` <span class="skill-ver">local v${escHtml(s.installed_version)}</span>` : '';
+      return `<div class="skill-item">
+        <div class="skill-row">
+          <span class="skill-name">${escHtml(s.name)}</span>
+          <span class="badge info sm">registry</span>
+          <span class="skill-ver">v${escHtml(s.version)}</span>${installedNote}
+          ${installBtn}
+        </div>
+        <div class="skill-desc">${escHtml(s.description || '')}</div>
+        ${tagsList ? `<div class="skill-tags">${tagsList}</div>` : ''}
+      </div>`;
+    }).join('');
+
+    const catalogHtml = `
+      <div id="registry-catalog">
+        <div style="margin-top:12px;font-size:12px;color:var(--text2);padding:4px 0;display:flex;align-items:center;gap:8px;">
+          Registry Catalog (${available.length})
+          <button class="btn sm" onclick="browseRegistry()" style="margin-left:auto;">Close</button>
+        </div>
+        <div class="skills-list">${cardsHtml || '<div class="empty-state">No skills in registry</div>'}</div>
+      </div>`;
+
+    const list = el && el.querySelector('#skills-list');
+    if (list) list.insertAdjacentHTML('afterend', catalogHtml);
+    else if (el) el.insertAdjacentHTML('beforeend', catalogHtml);
+  } catch (e) {
+    log('Registry browse error: ' + e.message, 'err');
+    const ps = document.getElementById('registry-browse-status');
+    if (ps) ps.textContent = 'Browse error — see Logs';
+  }
+}
+
+async function installSkill(name) {
+  log(`Installing skill from registry: ${name}...`, 'tool');
+  try {
+    const r = await fetch('/api/skills/registry/install', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      log(`Skill installed: ${d.name} v${d.version}`, 'ok');
+      loadSkills();
+    } else {
+      log(`Install failed: ${d.error}`, 'err');
+    }
+  } catch (e) {
+    log('Install error: ' + e.message, 'err');
   }
 }
 
@@ -158,7 +295,7 @@ async function analyzePatterns() {
   const existingStatus = document.getElementById(statusId);
   if (existingStatus) existingStatus.remove();
   const statusHtml = `<div class="empty-state" id="${statusId}">Analyzing patterns…</div>`;
-  const existingList = el && el.querySelector('.skills-list');
+  const existingList = el && el.querySelector('#skills-list');
   if (existingList) existingList.insertAdjacentHTML('afterend', statusHtml);
   else if (el) el.insertAdjacentHTML('beforeend', statusHtml);
 
@@ -180,7 +317,6 @@ async function analyzePatterns() {
     if (ps) ps.remove();
     log(`Found ${candidates.length} skill candidate(s) from ${total} outcomes`, 'ok');
 
-    // Render candidate cards below the existing skills list
     const cardsHtml = candidates.map((c, i) => `
       <div class="skill-item">
         <div class="skill-row">
@@ -196,8 +332,7 @@ async function analyzePatterns() {
         </div>
       </div>`).join('');
 
-    // Append candidates below current skills list (or replace empty state)
-    const existingList = el && el.querySelector('.skills-list');
+    const existingList = el && el.querySelector('#skills-list');
     if (existingList) {
       existingList.insertAdjacentHTML('beforeend', `
         <div style="margin-top:12px;font-size:12px;color:var(--text2);padding:4px 0">

@@ -12,6 +12,7 @@ async function checkStatus() {
         setBadge('badge-provider', 'LLM: offline', 'err');
       }
       providerStore.restore(d.provider);
+      setProviderConnected(d.provider.connected);
     }
 
     if (d.project && d.project.valid) {

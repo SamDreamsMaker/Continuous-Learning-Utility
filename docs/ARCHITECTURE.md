@@ -1,7 +1,7 @@
 # CLU — Architecture & Internal Reference
 
 > Exhaustive technical documentation for contributors and developers.
-> Updated: 2026-03-01
+> Updated: 2026-03-02
 
 ## 1. Overview
 
@@ -10,7 +10,7 @@ CLU (Continuous Learning Utility) is an autonomous 24/7 AI coding agent. It supp
 It follows a THINK → ACT → OBSERVE loop with a persistent daemon, task queue, heartbeat monitoring,
 scheduled tasks, multi-agent roles, and external integrations.
 
-- **Language**: Python 3.12+
+- **Language**: Python 3.13+
 - **LLM**: Any OpenAI-compatible, Anthropic, or Google provider
 - **Interface**: Web dashboard (FastAPI + WebSocket + vanilla JS)
 - **Validation**: Optional per-language validators (C# via dotnet build included)
@@ -71,6 +71,8 @@ CLU/
 │   ├── memory.py                    # MemoryManager (daily logs, knowledge categories, context injection)
 │   ├── resilience.py                # ResilientProvider (retry + circuit breaker + failover)
 │   ├── decomposer.py               # TaskDecomposer (LLM-based task splitting into sub-tasks)
+│   ├── context_store.py             # ContextStore: user context items with role scopes (always/coder/reviewer/tester)
+│   ├── outcome_tracker.py           # OutcomeTracker: appends task outcomes to data/outcomes.jsonl
 │   └── providers/                   # Multi-LLM provider abstraction
 │       ├── base.py                  # LLMProvider ABC + LLMResponse dataclass
 │       ├── factory.py               # create_provider(type, url, key, model)
@@ -82,15 +84,19 @@ CLU/
 │   ├── __init__.py
 │   ├── exceptions.py                # SkillLoadError, SkillIntegrityError, SkillRequirementError
 │   ├── manifest.py                  # SkillManifest dataclass + SHA-256 integrity + keyword matching
-│   ├── loader.py                    # SkillLoader: 3-tier discovery, secret scan, injection detect
-│   ├── manager.py                   # SkillManager: tool registration, prompt injection, summary
+│   ├── loader.py                    # SkillLoader: 4-tier discovery, secret scan, injection detect, topo sort
+│   ├── manager.py                   # SkillManager: tool registration, prompt injection, summary, state_store
 │   ├── test_runner.py               # SkillTestRunner: declarative test execution
+│   ├── state.py                     # SkillStateStore: persist enable/disable + auto_generate (~/.clu/skills-state.json)
+│   ├── registry.py                  # SkillRegistry: sync/publish/list/install from community GitHub registry
+│   ├── pattern_analyzer.py          # PatternAnalyzer: Jaccard clustering of outcomes.jsonl → SkillCandidate list
+│   ├── generator.py                 # SkillGenerator: LLM-powered skill generation + full security pipeline
 │   └── bundled/                     # Skills shipped with CLU
 │       ├── unity-support/           # Unity/C# coding guidelines (win32 only, requires Assets/)
 │       ├── todo-tracker/            # TODO/FIXME/HACK scanner across all source languages
 │       └── code-conventions/        # Generic code quality guidelines (prompt injection)
 │
-├── tools/                           # 12 LLM tools
+├── tools/                           # 13 LLM tools
 │   ├── base.py                      # BaseTool abstract class (to_openai_schema)
 │   ├── registry.py                  # ToolRegistry + lazy import via TOOL_MAP
 │   ├── think.py                     # ThinkTool — forces LLM to plan (no-op)
@@ -102,7 +108,8 @@ CLU/
 │   ├── unity_logs.py                # UnityLogsTool — Unity Editor logs (optional)
 │   ├── memory_tool.py               # MemoryTool — read/write/append/log knowledge
 │   ├── delegate_tool.py             # DelegateTool — enqueue sub-tasks for other roles
-│   └── manage_schedules.py          # ManageSchedulesTool — CRUD on cron schedules
+│   ├── manage_schedules.py          # ManageSchedulesTool — CRUD on cron schedules
+│   └── manage_context.py            # ManageContextTool — list/add/disable/delete user context items
 │
 ├── prompts/
 │   ├── system_prompt.md             # Default system prompt (THINK → ACT → OBSERVE protocol)
@@ -133,12 +140,12 @@ CLU/
 │   └── backup_manager.py            # BackupManager (timestamped backup + rollback)
 │
 ├── web/                             # Web dashboard
-│   ├── server.py                    # FastAPI + WebSocket (40+ REST endpoints incl. /api/skills/*)
-│   ├── index.html                   # Main HTML (8-tab panel layout)
+│   ├── server.py                    # FastAPI + WebSocket (40+ REST endpoints incl. /api/skills/*, /api/context/*)
+│   ├── index.html                   # Main HTML (9-tab panel layout + Context nav tab)
 │   ├── css/styles.css               # Dark theme, responsive, tabs, components
-│   └── js/                          # 16 frontend modules
+│   └── js/                          # 17 frontend modules
 │       ├── utils.js                 # Globals, escHtml, formatMarkdown, copyText
-│       ├── store.js                 # ProviderConfigStore (observer pattern)
+│       ├── store.js                 # ProviderConfigStore + connectionState reactive singleton
 │       ├── ui.js                    # Panel toggles, setRunning, addMsg, setBadge
 │       ├── logs.js                  # log(), setLogFilter()
 │       ├── provider.js              # Provider config, test, apply
@@ -152,7 +159,8 @@ CLU/
 │       ├── schedules.js             # Schedule CRUD with cron preview
 │       ├── alerts.js                # Notification center (read/unread, badges)
 │       ├── costs.js                 # Token consumption tracking
-│       └── skills.js                # Skills list, reload, per-skill test runner
+│       ├── skills.js                # Skills list, reload, per-skill test runner
+│       └── context.js               # Context items CRUD (scope badges, add form with scope dropdown)
 │
 ├── unity_plugin/                    # Unity Editor integration (optional)
 │   ├── AgentBridge.cs               # EditorWindow (HTTP communication with agent)
@@ -161,7 +169,7 @@ CLU/
 ├── docs/                            # Documentation
 │   └── ARCHITECTURE.md              # This file
 │
-├── tests/                           # 387 unit tests (pytest)
+├── tests/                           # 450 unit tests (pytest)
 │   ├── test_agent.py                # BudgetTracker + MessageHistory + loop detection
 │   ├── test_daemon.py               # TaskQueue + AgentDaemon + DaemonService
 │   ├── test_heartbeat.py            # All checks + HeartbeatManager
@@ -175,11 +183,15 @@ CLU/
 │   ├── test_tools.py                # All tools (read, write, list, search)
 │   ├── test_manage_schedules.py     # ManageSchedulesTool CRUD operations
 │   ├── test_skill_manifest.py       # SkillManifest parsing, SHA-256, requirements gating (30)
-│   ├── test_skill_loader.py         # 3-tier discovery, secret scan, topo sort (26)
+│   ├── test_skill_loader.py         # 4-tier discovery, secret scan, topo sort (26)
 │   ├── test_skill_manager.py        # Tool registration, prompt injection, budget (24)
 │   ├── test_skill_integrations.py   # HeartbeatManager + AgentDaemon with skills (9)
 │   ├── test_skill_config.py         # AgentConfig skills fields, backward compat (15)
 │   ├── test_skill_test_runner.py    # Declarative test execution, expectation engine (31)
+│   ├── test_outcome_tracker.py      # OutcomeTracker append + load (21)
+│   ├── test_pattern_analyzer.py     # Jaccard clustering, SkillCandidate extraction (16)
+│   ├── test_skill_generator.py      # LLM-based skill generation + security pipeline (11)
+│   ├── test_registry.py             # sync/publish/list/install registry operations (20)
 │   └── fixtures/
 │       ├── sample_valid.cs
 │       └── sample_invalid.cs
@@ -319,7 +331,7 @@ THINK → ACT → OBSERVE → repeat → FINISH
 - PID file + `SIGTERM` (Linux/macOS) / `taskkill` (Windows)
 - Dual launcher scripts: `.bat` (Windows) + `.sh` (Linux/macOS)
 
-## 5. LLM Tools (12 tools)
+## 5. LLM Tools (13 tools)
 
 | # | Tool | Signature | Description |
 |---|------|-----------|-------------|
@@ -333,6 +345,7 @@ THINK → ACT → OBSERVE → repeat → FINISH
 | 8 | `memory` | `(action, category?, content?)` | Read/write/append persistent knowledge. |
 | 9 | `delegate` | `(task, role, priority?, context?)` | Enqueue sub-task for another agent role. |
 | 10 | `manage_schedules` | `(action, schedule_id?, ...)` | List/create/update/delete/toggle cron schedules. |
+| 11 | `manage_context` | `(action, name?, content?, scope?)` | List/add/disable/delete user context items injected into every run. |
 
 Tools 6-7 are framework-specific and only loaded when listed in `tools.enabled` in config.
 
@@ -372,7 +385,7 @@ security:
 
 tools:
   enabled: [think, read_file, write_file, list_files, search_in_files,
-            memory, delegate, manage_schedules]
+            memory, delegate, manage_schedules, manage_context]
 
 validation:
   enabled: false                 # Set true + validator: "csharp" for C# projects
@@ -404,6 +417,7 @@ See `config/profiles/` for complete examples (Unity, Python).
 | Mem | Memory browser (knowledge categories) with inline editing |
 | Costs | Token consumption tracking (by session, aggregated) |
 | Skills | Loaded skills list (tier badge, tools, checks), reload, per-skill tests |
+| Context | User context rules with role scopes (always/coder/reviewer/tester), add/toggle/delete |
 
 ### REST API (40+ endpoints)
 
@@ -454,6 +468,11 @@ GET  /api/skills/{name}          Skill details (tools, checks, requirements)
 POST /api/skills/reload          Hot-reload all skills from disk
 POST /api/skills/{name}/test     Run declarative tests for a specific skill
 POST /api/skills/test/all        Run all skill tests
+
+GET  /api/context                List all context items
+POST /api/context                Create a context item (name, content, scope)
+PUT  /api/context/{id}           Update a context item (enabled, scope, content)
+DELETE /api/context/{id}         Delete a context item
 ```
 
 ### WebSocket
@@ -481,13 +500,14 @@ my-skill/
   templates/          # Markdown task templates for the scheduler
 ```
 
-### 3-Tier Discovery (priority: project > user > bundled)
+### 4-Tier Discovery (priority: project > user > registry > bundled)
 
 | Tier | Location | Trust |
 |------|----------|-------|
-| bundled | `skills/bundled/` | Highest — shipped with CLU |
-| user | `~/.clu/skills/` | Medium — per-user across all projects |
-| project | `<project>/.clu/skills/` | Highest runtime — per-project overrides |
+| bundled | `skills/bundled/` | Shipped with CLU |
+| registry | `~/.clu/registry-cache/` | Community-sourced, prompt-only (no Python modules) |
+| user | `~/.clu/skills/` | Per-user across all projects |
+| project | `<project>/.clu/skills/` | Highest priority — per-project overrides |
 
 If two tiers define a skill with the same name, the higher-priority tier wins.
 
@@ -571,7 +591,7 @@ skills:
 ## 11. Dependencies
 
 **Required:**
-- Python 3.12+
+- Python 3.13+
 - An LLM provider (local or cloud)
 
 **Optional:**
@@ -608,7 +628,7 @@ python main.py --web --config config/profiles/python.yaml
 python main.py --daemon start
 
 # Run tests
-python -m pytest tests/ -v    # 387 tests
+python -m pytest tests/ -v    # 450 tests
 ```
 
 ---

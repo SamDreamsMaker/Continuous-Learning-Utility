@@ -77,6 +77,8 @@ function renderProviderConfig(state, changed) {
     // Show model group only when connected or models loaded
     const modelGroup = document.getElementById('model-group');
     modelGroup.style.display = (state.status === true || (state.models && state.models.length > 0)) ? '' : 'none';
+    // Sync chat send button and setup card with connection state
+    setProviderConnected(state.status === true);
   }
 }
 
@@ -132,13 +134,16 @@ async function testProvider() {
         models: d.models && d.models.length ? d.models : s.models,
       });
       providerStore.saveConnection();
+      setProviderConnected(true);
     } else {
       providerStore.update({ status: false, statusText: d.error || 'Connection failed' });
       providerStore.saveConnection();
+      setProviderConnected(false);
     }
   } catch (e) {
     providerStore.update({ status: false, statusText: e.message });
     providerStore.saveConnection();
+    setProviderConnected(false);
   }
 }
 
@@ -156,15 +161,18 @@ async function applyProvider() {
       setBadge('badge-provider', 'LLM: ' + d.model.split('/').pop(), 'ok');
       providerStore.update({ status: true, statusText: 'Applied: ' + d.name + ' / ' + d.model });
       providerStore.saveConnection();
+      setProviderConnected(true);
       log('Provider change: ' + d.name + ' / ' + d.model, 'ok');
     } else {
       providerStore.update({ status: false, statusText: d.error || 'Error' });
       providerStore.saveConnection();
+      setProviderConnected(false);
       log('Provider error: ' + d.error, 'err');
     }
   } catch (e) {
     providerStore.update({ status: false, statusText: e.message });
     providerStore.saveConnection();
+    setProviderConnected(false);
   }
 }
 

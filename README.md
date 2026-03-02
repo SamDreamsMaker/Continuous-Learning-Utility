@@ -31,7 +31,7 @@ CLU: thinks → reads existing code → plans the refactor → writes files → 
 
 **Core Agent**
 - Autonomous THINK → ACT → OBSERVE execution loop
-- 12 LLM tools: read, write, search, validate, delegate, manage schedules, and more
+- 13 LLM tools: read, write, search, validate, delegate, manage schedules, manage context, and more
 - Anti-loop detection with 3-level escalation (text warning → write mode → tool removal)
 - Session persistence and crash recovery with checkpointing
 - Automatic file backup before every write
@@ -63,7 +63,7 @@ CLU: thinks → reads existing code → plans the refactor → writes files → 
 
 **Web Dashboard**
 - Real-time streaming via WebSocket
-- 8-tab panel: Logs, Tasks, Schedules, Heartbeat, Alerts, Memory, Costs, Skills
+- 9-tab panel: Logs, Tasks, Schedules, Heartbeat, Alerts, Memory, Costs, Skills, Context
 - 40+ REST API endpoints
 - Task queue management, schedule CRUD, memory browser, skills viewer
 
@@ -83,7 +83,7 @@ CLU: thinks → reads existing code → plans the refactor → writes files → 
 
 ### Prerequisites
 
-- **Python 3.12+**
+- **Python 3.13+**
 - **An LLM provider** — either a local server ([LM Studio](https://lmstudio.ai), Ollama) or a cloud API key
 
 ### Setup
@@ -243,6 +243,7 @@ tools:
     - memory
     - delegate
     - manage_schedules
+    - manage_context
     # Optional:
     # - validate_csharp
     # - unity_logs
@@ -282,7 +283,7 @@ The dashboard runs at `http://localhost:8080` and provides a 2-column layout:
 | Section | Description |
 |---------|-------------|
 | **Chat** | Real-time agent execution stream (tool calls, results, responses) |
-| **Panel** | 8-tab dashboard (Logs, Tasks, Schedules, Heartbeat, Alerts, Memory, Costs, Skills) |
+| **Panel** | 9-tab dashboard (Logs, Tasks, Schedules, Heartbeat, Alerts, Memory, Costs, Skills, Context) |
 
 ### Key Capabilities
 
@@ -293,6 +294,7 @@ The dashboard runs at `http://localhost:8080` and provides a 2-column layout:
 - **Memory**: Browse and edit the agent's persistent knowledge base
 - **Costs**: Track token consumption across sessions
 - **Skills**: View loaded skills, trigger reload, run per-skill tests
+- **Context**: Manage persistent context rules (scope: always / coder / reviewer / tester) injected into every agent run
 - **Provider Config**: Switch LLM provider/model on the fly
 
 ### REST API
@@ -381,6 +383,7 @@ CLU's LLM splits this into prioritized sub-tasks (e.g., refactor → review → 
 | 8 | `memory` | Read/write persistent knowledge (conventions, patterns, issues) |
 | 9 | `delegate` | Enqueue sub-tasks for other agent roles |
 | 10 | `manage_schedules` | CRUD operations on cron schedules at runtime |
+| 11 | `manage_context` | List/add/disable/delete user context items (with role scope) |
 
 ## Integrations
 
@@ -412,12 +415,13 @@ For Unity/C# projects, an optional Editor plugin (`unity_plugin/AgentBridge.cs`)
 # Run all tests
 python -m pytest tests/ -v
 
-# 387 tests across 18 test files
+# 450 tests across 22 test files
 # Covers: agent, daemon, heartbeat, integrations, memory,
 #         multi-agent, providers, resilience, sandbox,
 #         scheduler, tools, manage_schedules,
 #         skill_manifest, skill_loader, skill_manager,
-#         skill_integrations, skill_config, skill_test_runner
+#         skill_integrations, skill_config, skill_test_runner,
+#         outcome_tracker, pattern_analyzer, skill_generator, registry
 
 # Skills CLI
 python main.py --skills list     # List all loaded skills
@@ -458,7 +462,7 @@ CLU/
 │       ├── unity-support/     # Unity/C# guidelines + compile check
 │       ├── todo-tracker/      # TODO/FIXME scanner
 │       └── code-conventions/  # Generic code quality guidelines
-├── tools/                     # 12 LLM-callable tools
+├── tools/                     # 13 LLM-callable tools
 ├── sandbox/                   # Path validation + backups
 ├── validation/                # C# validator (optional)
 ├── web/                       # Dashboard (FastAPI + vanilla JS)
@@ -477,7 +481,7 @@ For detailed internals, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 | Dependency | Required | Notes |
 |-----------|----------|-------|
-| Python 3.12+ | Yes | Auto-installed by `setup.bat` on Windows |
+| Python 3.13+ | Yes | Auto-installed by `setup.bat` on Windows |
 | LLM provider | Yes | Local (LM Studio, Ollama) or cloud (Anthropic, Google, OpenAI) |
 | .NET SDK 8.0+ | No | Only for C# validation |
 | Unity Editor | No | Only for Unity DLL references |

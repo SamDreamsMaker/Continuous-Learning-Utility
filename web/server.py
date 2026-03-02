@@ -30,6 +30,8 @@ from daemon.webhooks import WebhookHandler
 from daemon import service as daemon_service
 from skills.loader import SkillLoader
 from skills.manager import SkillManager
+from skills.state import SkillStateStore
+from orchestrator.context_store import ContextStore
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +46,8 @@ _config: AgentConfig | None = None
 _project_path: str | None = None
 _provider: LLMProvider | None = None
 _skill_manager: SkillManager | None = None
+_skill_state: SkillStateStore | None = None
+_context_store: ContextStore | None = None
 
 
 def get_config() -> AgentConfig:
@@ -74,7 +78,7 @@ def set_provider(provider: LLMProvider):
 def get_project_path() -> str:
     global _project_path
     if _project_path is None:
-        _project_path = os.environ.get("AGENT_PROJECT_PATH", "")
+        _project_path = os.environ.get("AGENT_PROJECT_PATH", os.getcwd())
     return _project_path
 
 
@@ -722,7 +726,73 @@ async def get_costs():
     }
 
 
+# ---- Context endpoints ----
+
+def get_context_store() -> ContextStore:
+    """Get or initialize the global ContextStore for the current project."""
+    global _context_store
+    if _context_store is None:
+        _context_store = ContextStore(project_path=get_project_path() or ".")
+    return _context_store
+
+
+@app.get("/api/context")
+async def list_context():
+    """List all user context items."""
+    store = await asyncio.to_thread(get_context_store)
+    return {"items": [i.to_dict() for i in store.list_items()]}
+
+
+@app.post("/api/context")
+async def create_context_item(request: Request):
+    """Create a new context item."""
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"error": "Invalid JSON"}, status_code=400)
+    name = (body.get("name") or "").strip()
+    content = body.get("content") or ""
+    scope = (body.get("scope") or "always").strip()
+    if not name:
+        return JSONResponse({"error": "name is required"}, status_code=400)
+    store = get_context_store()
+    item = store.add_item(name=name, content=content, scope=scope)
+    return {"ok": True, "item": item.to_dict()}
+
+
+@app.put("/api/context/{item_id}")
+async def update_context_item(item_id: str, request: Request):
+    """Update a context item (name, content, or enabled toggle)."""
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"error": "Invalid JSON"}, status_code=400)
+    store = get_context_store()
+    updated = store.update_item(item_id, **body)
+    if updated is None:
+        return JSONResponse({"error": "Item not found"}, status_code=404)
+    return {"ok": True, "item": updated.to_dict()}
+
+
+@app.delete("/api/context/{item_id}")
+async def delete_context_item(item_id: str):
+    """Delete a context item."""
+    store = get_context_store()
+    deleted = store.delete_item(item_id)
+    if not deleted:
+        return JSONResponse({"error": "Item not found"}, status_code=404)
+    return {"ok": True}
+
+
 # ---- Skills endpoints ----
+
+def get_state_store() -> SkillStateStore:
+    """Get or initialize the global SkillStateStore."""
+    global _skill_state
+    if _skill_state is None:
+        _skill_state = SkillStateStore()
+    return _skill_state
+
 
 def get_skill_manager() -> SkillManager:
     """Get or initialize the global SkillManager."""
@@ -745,7 +815,7 @@ def get_skill_manager() -> SkillManager:
                 user_skills_dir=config.skills_user_dir or None,
                 project_skills_dir=proj_skills_dir,
             )
-            _skill_manager = SkillManager.from_loader(loader)
+            _skill_manager = SkillManager.from_loader(loader, state_store=get_state_store())
     return _skill_manager
 
 
@@ -753,11 +823,19 @@ def get_skill_manager() -> SkillManager:
 async def list_skills():
     """List all loaded skills."""
     try:
+        config = get_config()
         mgr = await asyncio.to_thread(get_skill_manager)
-        return {"count": mgr.skill_count, "skills": mgr.summary()}
+        state = get_state_store()
+        auto_gen_override = state.get_auto_generate()
+        auto_generate = auto_gen_override if auto_gen_override is not None else config.skills_auto_generate
+        return {
+            "count": mgr.skill_count,
+            "skills": mgr.summary(),
+            "auto_generate": auto_generate,
+        }
     except Exception as e:
         logger.error("Skills load failed: %s", e)
-        return {"count": 0, "skills": [], "error": str(e)}
+        return {"count": 0, "skills": [], "error": str(e), "auto_generate": False}
 
 
 @app.get("/api/skills/{skill_name}")
@@ -969,6 +1047,87 @@ async def publish_skill(skill_name: str):
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
 
 
+# ---- Skills: enable / disable ----
+
+@app.post("/api/skills/{skill_name}/enable")
+async def enable_skill(skill_name: str):
+    """Enable a previously disabled skill."""
+    state = get_state_store()
+    state.set_enabled(skill_name, True)
+    global _skill_manager
+    _skill_manager = None
+    return {"ok": True, "name": skill_name, "enabled": True}
+
+
+@app.post("/api/skills/{skill_name}/disable")
+async def disable_skill(skill_name: str):
+    """Disable a skill (excluded from prompts and tool registration)."""
+    state = get_state_store()
+    state.set_enabled(skill_name, False)
+    global _skill_manager
+    _skill_manager = None
+    return {"ok": True, "name": skill_name, "enabled": False}
+
+
+# ---- Skills: auto-generation toggle ----
+
+@app.post("/api/skills/autogen")
+async def toggle_autogen(body: dict):
+    """Toggle auto-generation of skills at runtime."""
+    enabled = body.get("enabled")
+    if not isinstance(enabled, bool):
+        return JSONResponse({"error": "body must contain {\"enabled\": bool}"}, status_code=400)
+    config = get_config()
+    config.skills_auto_generate = enabled
+    state = get_state_store()
+    state.set_auto_generate(enabled)
+    return {"ok": True, "auto_generate": enabled}
+
+
+# ---- Skills: registry browse + install ----
+
+@app.get("/api/skills/registry/available")
+async def registry_available():
+    """Fetch the registry index and return available skills with install status."""
+    config = get_config()
+
+    def _list():
+        from skills.registry import list_available as do_list
+        skills = do_list(registry_url=config.skills_registry_url)
+        return {"skills": skills, "total": len(skills)}
+
+    try:
+        return await asyncio.to_thread(_list)
+    except Exception as e:
+        logger.error("Registry available list failed: %s", e)
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+@app.post("/api/skills/registry/install")
+async def registry_install(body: dict):
+    """Download and install a single skill from the community registry."""
+    name = body.get("name", "").strip()
+    if not name:
+        return JSONResponse({"error": "body must contain {\"name\": \"skill-name\"}"}, status_code=400)
+
+    config = get_config()
+
+    def _install():
+        from skills.registry import install_one
+        return install_one(
+            name=name,
+            registry_url=config.skills_registry_url,
+            skill_manager_invalidate_fn=lambda: globals().update(_skill_manager=None),
+        )
+
+    try:
+        result = await asyncio.to_thread(_install)
+        return result
+    except Exception as e:
+        logger.error("Registry install '%s' failed: %s", name, e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
 # ---- WebSocket for agent streaming ----
 
 @app.websocket("/ws/agent")
@@ -1020,6 +1179,8 @@ async def _run_agent_streaming(
         provider=provider,
         project_path=project_path,
         session_mgr=_session_mgr,
+        skill_manager=get_skill_manager(),
+        context_store=get_context_store(),
     )
 
     async def on_event(event: AgentEvent):
@@ -1032,9 +1193,10 @@ async def _run_agent_streaming(
     )
 
 
-# Serve static files (CSS, JS)
+# Serve static files (CSS, JS, img)
 app.mount("/css", StaticFiles(directory=os.path.join(WEB_DIR, "css")), name="css")
 app.mount("/js", StaticFiles(directory=os.path.join(WEB_DIR, "js")), name="js")
+app.mount("/img", StaticFiles(directory=os.path.join(WEB_DIR, "img")), name="img")
 
 
 def _kill_previous(port: int):

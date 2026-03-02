@@ -18,6 +18,7 @@ TOOL_MAP = {
     "unity_logs": ("tools.unity_logs", "UnityLogsTool"),
     "memory": ("tools.memory_tool", "MemoryTool"),
     "manage_schedules": ("tools.manage_schedules", "ManageSchedulesTool"),
+    "manage_context": ("tools.manage_context", "ManageContextTool"),
 }
 
 

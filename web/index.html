@@ -9,31 +9,61 @@
 <body>
 
 <div class="app">
-  <!-- Header -->
+  <!-- Header / Nav bar -->
   <header class="header">
-    <h1>CLU</h1>
+    <img class="brand-logo" src="/img/CluIcon.png" alt="CLU" />
+    <nav class="nav">
+      <button class="nav-btn active" onclick="switchPage('chat',this)">Chat</button>
+      <button class="nav-btn" onclick="switchPage('logs',this)">Logs</button>
+      <button class="nav-btn" onclick="switchPage('tasks',this)">Tasks</button>
+      <button class="nav-btn" onclick="switchPage('schedules',this)">Schedules</button>
+      <button class="nav-btn" onclick="switchPage('heartbeat',this)">Heartbeat</button>
+      <button class="nav-btn" onclick="switchPage('alerts',this)">Alerts<span class="nav-badge" id="alerts-badge" style="display:none;"></span></button>
+      <button class="nav-btn" onclick="switchPage('memory',this)">Memory</button>
+      <button class="nav-btn" onclick="switchPage('costs',this)">Costs</button>
+      <button class="nav-btn" data-tab="skills" onclick="switchPage('skills',this)">Skills</button>
+      <button class="nav-btn" onclick="switchPage('context',this)">Context<span class="nav-badge" id="context-badge" style="display:none;"></span></button>
+      <button class="nav-btn settings" onclick="switchPage('config',this)" title="Settings">&#9881;</button>
+    </nav>
     <div class="status-badges">
-      <span id="badge-provider" class="badge err clickable" onclick="togglePanel()" title="LLM Configuration">LLM: ---</span>
+      <span id="badge-provider" class="badge err clickable" onclick="switchPage('config',null)" title="LLM Configuration">LLM: ---</span>
       <span id="badge-project" class="badge err badge-secondary">Project: ---</span>
       <span id="badge-ws" class="badge err badge-secondary">WS: ---</span>
     </div>
-    <button class="toggle-btn" id="panel-toggle" onclick="togglePanel()" title="Settings">&#9881;</button>
   </header>
 
-  <!-- Panel overlay (mobile/tablet) -->
-  <div class="panel-overlay" id="panel-overlay" onclick="closeAllPanels()"></div>
-
-  <!-- Main chat -->
-  <main class="main">
+  <!-- PAGE: Chat (default) -->
+  <div class="page active" id="page-chat">
     <div class="messages" id="messages">
       <div class="msg system-msg">
-        Welcome. Configure the LLM provider in the settings panel, then send a task to the agent.
+        Welcome. Configure the LLM provider in settings, then send a task to the agent.
       </div>
     </div>
     <button class="scroll-bottom-btn" id="scroll-btn" onclick="scrollToBottom()">&#8595;</button>
     <div class="running-indicator" id="running-indicator">
       <div class="running-dot"></div>
       <span id="running-text">Agent running...</span>
+    </div>
+    <div class="context-indicator" id="context-indicator" style="display:none;">
+      <span id="context-indicator-text"></span>
+      <button class="btn sm" onclick="switchPage('context',null)">Edit</button>
+    </div>
+    <div class="budget-strip">
+      <div class="budget-item">
+        <span>Iterations</span>
+        <div class="meter-bar"><div class="meter-fill" id="iter-fill"></div></div>
+        <span id="iter-label">0 / 50</span>
+      </div>
+      <div class="budget-item">
+        <span>Tokens</span>
+        <div class="meter-bar"><div class="meter-fill" id="token-fill"></div></div>
+        <span id="token-label">0 / 500K</span>
+      </div>
+    </div>
+    <div class="modified-strip">
+      <div class="modified-list" id="modified-list">
+        <div style="font-size:12px;color:var(--text2);">None</div>
+      </div>
     </div>
     <div class="input-area">
       <div class="input-row">
@@ -43,190 +73,153 @@
         <button class="btn danger" id="stop-btn" onclick="stopAgent()" style="display:none;">Stop</button>
       </div>
     </div>
-  </main>
+  </div>
 
-  <!-- Right panel -->
-  <aside class="panel" id="panel">
-    <!-- Provider Config -->
-    <div class="panel-section">
-      <h3>LLM Configuration</h3>
-      <div class="provider-config">
-        <div>
-          <label>Provider</label>
-          <select id="cfg-provider" onchange="onProviderTypeChange()" autocomplete="off">
-            <option value="openai_compat">LM Studio / OpenAI-compatible</option>
-            <option value="openai_compat" data-preset="openai">OpenAI</option>
-            <option value="anthropic">Anthropic (Claude)</option>
-            <option value="google">Google Gemini</option>
-          </select>
-        </div>
-        <div id="url-group">
-          <label>Base URL</label>
-          <input type="text" id="cfg-url" placeholder="http://localhost:1234/v1" />
-        </div>
-        <div>
-          <label>API Key</label>
-          <div style="display:flex;gap:4px;">
-            <input type="password" id="cfg-apikey" placeholder="Leave empty for local" style="flex:1;" />
-            <button class="btn sm" onclick="toggleKeyVisibility()" title="Show/hide">&#128065;</button>
-          </div>
-        </div>
-        <div id="model-group" style="display:none;">
-          <label>Model</label>
-          <div id="model-input-group" style="display:flex;gap:4px;">
-            <input type="text" id="cfg-model-input" placeholder="qwen/qwen3-coder-30b" style="flex:1;" />
-            <button class="btn sm" onclick="loadModels()" title="Load models">&#8635;</button>
-          </div>
-          <div id="model-select-group" style="display:none;gap:4px;">
-            <select id="cfg-model-select" style="flex:1;">
-              <option value="">-- Select a model --</option>
+  <!-- PAGE: Logs -->
+  <div class="page" id="page-logs">
+    <div class="page-toolbar">
+      <div class="log-filter">
+        <button class="active" onclick="setLogFilter('all', this)">All</button>
+        <button onclick="setLogFilter('tool', this)">Tool</button>
+        <button onclick="setLogFilter('warn', this)">Warn</button>
+        <button onclick="setLogFilter('err', this)">Err</button>
+      </div>
+    </div>
+    <div class="logs" id="logs"></div>
+  </div>
+
+  <!-- PAGE: Tasks -->
+  <div class="page" id="page-tasks">
+    <div class="page-toolbar">
+      <div class="enqueue-row">
+        <input type="text" id="new-task-input" placeholder="Quick task..." />
+        <select id="new-task-role">
+          <option value="">Any</option>
+          <option value="coder">Coder</option>
+          <option value="reviewer">Reviewer</option>
+          <option value="tester">Tester</option>
+        </select>
+        <button class="btn sm primary" onclick="enqueueNewTask()">+</button>
+      </div>
+    </div>
+    <div class="page-content" id="tasks-list"><div class="empty-state">Loading...</div></div>
+  </div>
+
+  <!-- PAGE: Schedules -->
+  <div class="page" id="page-schedules">
+    <div class="page-content" id="schedules-content"><div class="empty-state">Loading...</div></div>
+  </div>
+
+  <!-- PAGE: Heartbeat -->
+  <div class="page" id="page-heartbeat">
+    <div class="page-content" id="heartbeat-content"><div class="empty-state">Loading...</div></div>
+  </div>
+
+  <!-- PAGE: Alerts -->
+  <div class="page" id="page-alerts">
+    <div class="page-content" id="alerts-content"><div class="empty-state">Loading...</div></div>
+  </div>
+
+  <!-- PAGE: Memory -->
+  <div class="page" id="page-memory">
+    <div class="page-content" id="memory-content"><div class="empty-state">Loading...</div></div>
+  </div>
+
+  <!-- PAGE: Costs -->
+  <div class="page" id="page-costs">
+    <div class="page-content" id="costs-content"><div class="empty-state">Loading...</div></div>
+  </div>
+
+  <!-- PAGE: Skills -->
+  <div class="page" id="page-skills">
+    <div class="page-content" id="skills-content"><div class="empty-state">Loading...</div></div>
+  </div>
+
+  <!-- PAGE: Context -->
+  <div class="page" id="page-context">
+    <div class="page-content" id="context-content"><div class="empty-state">Loading...</div></div>
+  </div>
+
+  <!-- PAGE: Config / Settings -->
+  <div class="page" id="page-config">
+    <div class="page-content config-grid">
+
+      <!-- LLM Configuration -->
+      <section class="config-section">
+        <h2>LLM Configuration</h2>
+        <div class="provider-config">
+          <div>
+            <label>Provider</label>
+            <select id="cfg-provider" onchange="onProviderTypeChange()" autocomplete="off">
+              <option value="openai_compat">LM Studio / OpenAI-compatible</option>
+              <option value="openai_compat" data-preset="openai">OpenAI</option>
+              <option value="anthropic">Anthropic (Claude)</option>
+              <option value="google">Google Gemini</option>
             </select>
-            <button class="btn sm" onclick="loadModels()" title="Refresh">&#8635;</button>
+          </div>
+          <div id="url-group">
+            <label>Base URL</label>
+            <input type="text" id="cfg-url" placeholder="http://localhost:1234/v1" />
+          </div>
+          <div>
+            <label>API Key</label>
+            <div style="display:flex;gap:4px;">
+              <input type="password" id="cfg-apikey" placeholder="Leave empty for local" style="flex:1;" />
+              <button class="btn sm" onclick="toggleKeyVisibility()" title="Show/hide">&#128065;</button>
+            </div>
+          </div>
+          <div id="model-group" style="display:none;">
+            <label>Model</label>
+            <div id="model-input-group" style="display:flex;gap:4px;">
+              <input type="text" id="cfg-model-input" placeholder="qwen/qwen3-coder-30b" style="flex:1;" />
+              <button class="btn sm" onclick="loadModels()" title="Load models">&#8635;</button>
+            </div>
+            <div id="model-select-group" style="display:none;gap:4px;">
+              <select id="cfg-model-select" style="flex:1;">
+                <option value="">-- Select a model --</option>
+              </select>
+              <button class="btn sm" onclick="loadModels()" title="Refresh">&#8635;</button>
+            </div>
+          </div>
+          <div class="row">
+            <button class="btn" onclick="testProvider()">Connect</button>
+            <button class="btn primary" onclick="applyProvider()">Apply</button>
+          </div>
+          <div class="provider-status" id="provider-status">
+            <span class="dot err"></span>
+            <span>Not connected</span>
           </div>
         </div>
-        <div class="row">
-          <button class="btn" onclick="testProvider()">Connect</button>
-          <button class="btn primary" onclick="applyProvider()">Apply</button>
+      </section>
+
+      <!-- Sessions -->
+      <section class="config-section">
+        <h2>Sessions <button class="btn sm" onclick="loadSessions()" style="margin-left:auto;">Refresh</button></h2>
+        <div id="sessions-list" style="max-height:200px;overflow-y:auto;"></div>
+      </section>
+
+      <!-- Budget Limits -->
+      <section class="config-section">
+        <h2>Budget Limits</h2>
+        <div class="provider-config">
+          <div>
+            <label>Max Iterations</label>
+            <input type="number" id="cfg-iterations" placeholder="50" />
+          </div>
+          <div>
+            <label>Max Tokens</label>
+            <input type="number" id="cfg-tokens" placeholder="500000" />
+          </div>
+          <button class="btn" onclick="updateBudgetConfig()">Apply</button>
         </div>
-        <div class="provider-status" id="provider-status">
-          <span class="dot err"></span>
-          <span>Not connected</span>
+        <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border);">
+          <button class="btn danger" onclick="rollback()" style="width:100%;">Rollback last session</button>
         </div>
-      </div>
-    </div>
+      </section>
 
-    <!-- Budget -->
-    <div class="panel-section">
-      <h3>Budget</h3>
-      <div class="meter">
-        <div class="meter-label">
-          <span>Iterations</span>
-          <span id="iter-label">0 / 50</span>
-        </div>
-        <div class="meter-bar">
-          <div class="meter-fill" id="iter-fill" style="width:0%"></div>
-        </div>
-      </div>
-      <div class="meter">
-        <div class="meter-label">
-          <span>Completion tokens</span>
-          <span id="token-label">0 / 500K</span>
-        </div>
-        <div class="meter-bar">
-          <div class="meter-fill" id="token-fill" style="width:0%"></div>
-        </div>
-      </div>
-      <div style="margin-top:8px;display:flex;gap:4px;">
-        <input type="number" id="cfg-iterations" placeholder="50" style="width:60px;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:3px 6px;border-radius:3px;font-size:11px;" />
-        <input type="number" id="cfg-tokens" placeholder="500000" style="width:80px;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:3px 6px;border-radius:3px;font-size:11px;" />
-        <button class="btn sm" onclick="updateBudgetConfig()">Set</button>
-      </div>
     </div>
+  </div>
 
-    <!-- Modified files -->
-    <div class="panel-section">
-      <h3>Modified files</h3>
-      <div class="modified-list" id="modified-list">
-        <div style="font-size:12px;color:var(--text2);">None</div>
-      </div>
-    </div>
-
-    <!-- Sessions -->
-    <div class="panel-section">
-      <h3>Sessions <button class="btn sm" onclick="loadSessions()" style="margin-left:auto;">Refresh</button></h3>
-      <div id="sessions-list" style="max-height:140px;overflow-y:auto;"></div>
-    </div>
-
-    <!-- Tabs for extended dashboard -->
-    <div class="panel-tabs">
-      <button class="tab-btn active" data-tab="logs" onclick="switchTab('logs', this)">Logs</button>
-      <button class="tab-btn" data-tab="tasks" onclick="switchTab('tasks', this)">Tasks</button>
-      <button class="tab-btn" data-tab="schedules" onclick="switchTab('schedules', this)">Sched</button>
-      <button class="tab-btn" data-tab="heartbeat" onclick="switchTab('heartbeat', this)">HB</button>
-      <button class="tab-btn" data-tab="alerts" onclick="switchTab('alerts', this)">
-        Alerts<span class="tab-badge" id="alerts-badge" style="display:none;"></span>
-      </button>
-      <button class="tab-btn" data-tab="memory" onclick="switchTab('memory', this)">Mem</button>
-      <button class="tab-btn" data-tab="costs" onclick="switchTab('costs', this)">Costs</button>
-      <button class="tab-btn" data-tab="skills" onclick="switchTab('skills', this)">Skills</button>
-    </div>
-
-    <!-- Tab: Logs (default) -->
-    <div class="tab-content active" id="tab-logs">
-      <div class="panel-section logs-section">
-        <div class="log-filter">
-          <button class="active" onclick="setLogFilter('all', this)">All</button>
-          <button onclick="setLogFilter('tool', this)">Tool</button>
-          <button onclick="setLogFilter('warn', this)">Warn</button>
-          <button onclick="setLogFilter('err', this)">Err</button>
-        </div>
-        <div class="logs" id="logs"></div>
-      </div>
-    </div>
-
-    <!-- Tab: Tasks -->
-    <div class="tab-content" id="tab-tasks">
-      <div class="panel-section">
-        <div class="enqueue-row">
-          <input type="text" id="new-task-input" placeholder="Quick task..." />
-          <select id="new-task-role">
-            <option value="">Any</option>
-            <option value="coder">Coder</option>
-            <option value="reviewer">Reviewer</option>
-            <option value="tester">Tester</option>
-          </select>
-          <button class="btn sm primary" onclick="enqueueNewTask()">+</button>
-        </div>
-        <div id="tasks-list"><div class="empty-state">Loading...</div></div>
-      </div>
-    </div>
-
-    <!-- Tab: Schedules -->
-    <div class="tab-content" id="tab-schedules">
-      <div class="panel-section">
-        <div id="schedules-content"><div class="empty-state">Loading...</div></div>
-      </div>
-    </div>
-
-    <!-- Tab: Heartbeat -->
-    <div class="tab-content" id="tab-heartbeat">
-      <div class="panel-section">
-        <div id="heartbeat-content"><div class="empty-state">Loading...</div></div>
-      </div>
-    </div>
-
-    <!-- Tab: Alerts -->
-    <div class="tab-content" id="tab-alerts">
-      <div class="panel-section">
-        <div id="alerts-content"><div class="empty-state">Loading...</div></div>
-      </div>
-    </div>
-
-    <!-- Tab: Memory -->
-    <div class="tab-content" id="tab-memory">
-      <div class="panel-section">
-        <div id="memory-content"><div class="empty-state">Loading...</div></div>
-      </div>
-    </div>
-
-    <!-- Tab: Costs -->
-    <div class="tab-content" id="tab-costs">
-      <div class="panel-section">
-        <div id="costs-content"><div class="empty-state">Loading...</div></div>
-      </div>
-    </div>
-
-    <!-- Tab: Skills -->
-    <div class="tab-content" id="tab-skills">
-      <div class="panel-section">
-        <div id="skills-content"><div class="empty-state">Loading...</div></div>
-      </div>
-    </div>
-
-    <div class="panel-section">
-      <button class="btn danger" onclick="rollback()" style="width:100%;">Rollback last session</button>
-    </div>
-  </aside>
 </div>
 
 <!-- Connection overlay -->
@@ -254,6 +247,7 @@
 <script src="/js/alerts.js"></script>
 <script src="/js/costs.js"></script>
 <script src="/js/skills.js"></script>
+<script src="/js/context.js"></script>
 <script src="/js/websocket.js"></script>
 <script src="/js/main.js"></script>
 </body>

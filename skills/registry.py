@@ -503,3 +503,149 @@ def _anonymous_id() -> str:
 
 def registry_cache_dir() -> str:
     return _REGISTRY_CACHE_DIR
+
+
+# ---------------------------------------------------------------------------
+# Browse (list available without downloading)
+# ---------------------------------------------------------------------------
+
+def list_available(
+    registry_url: str,
+    cache_dir: str | None = None,
+) -> list[dict]:
+    """Fetch the registry index and return available skills with install status.
+
+    Does NOT download any skill files — only reads the registry.json index.
+
+    Args:
+        registry_url: GitHub repo URL for the registry.
+        cache_dir: Local registry cache directory (default: ~/.clu/registry-cache).
+
+    Returns:
+        List of dicts with keys:
+            name, version, description, tags, installed, installed_version,
+            update_available
+    """
+    install_dir = cache_dir or _REGISTRY_CACHE_DIR
+
+    # Load local state
+    state_path = os.path.join(install_dir, _REGISTRY_STATE_FILE)
+    local_state: dict[str, str] = {}
+    if os.path.isfile(state_path):
+        try:
+            with open(state_path, "r", encoding="utf-8") as fh:
+                local_state = json.load(fh)
+        except (OSError, json.JSONDecodeError):
+            pass
+
+    # Fetch remote index
+    index_url = _raw_url_for_file(registry_url, "registry.json")
+    raw_index = _fetch_raw(index_url)
+    index = json.loads(raw_index)
+
+    result: list[dict] = []
+    for entry in index.get("skills", []):
+        name = entry.get("name", "")
+        if not name:
+            continue
+        installed_version = local_state.get(name)
+        result.append({
+            "name": name,
+            "version": entry.get("version", "0.0.0"),
+            "description": entry.get("description", ""),
+            "tags": entry.get("tags", []),
+            "author": entry.get("author", ""),
+            "installed": installed_version is not None,
+            "installed_version": installed_version,
+            "update_available": (
+                installed_version is not None
+                and installed_version != entry.get("version", "0.0.0")
+            ),
+        })
+    return result
+
+
+def install_one(
+    name: str,
+    registry_url: str,
+    cache_dir: str | None = None,
+    skill_manager_invalidate_fn=None,
+) -> dict:
+    """Download and install a single skill from the registry by name.
+
+    Args:
+        name: Skill name as it appears in the registry index.
+        registry_url: GitHub repo URL for the registry.
+        cache_dir: Local registry cache directory (default: ~/.clu/registry-cache).
+        skill_manager_invalidate_fn: Optional callback to reset SkillManager.
+
+    Returns:
+        dict with keys: ok, name, version
+
+    Raises:
+        RuntimeError: If the skill is not found in the registry or download fails.
+        SecurityError: If the skill fails security checks.
+    """
+    from skills.loader import SkillLoader
+
+    install_dir = cache_dir or _REGISTRY_CACHE_DIR
+    os.makedirs(install_dir, exist_ok=True)
+
+    # Fetch registry index to find the skill entry
+    index_url = _raw_url_for_file(registry_url, "registry.json")
+    raw_index = _fetch_raw(index_url)
+    index = json.loads(raw_index)
+
+    skill_entry = next(
+        (s for s in index.get("skills", []) if s.get("name") == name),
+        None,
+    )
+    if skill_entry is None:
+        raise RuntimeError(f"Skill '{name}' not found in registry index")
+
+    version = skill_entry.get("version", "0.0.0")
+    sha256s: dict[str, str] = skill_entry.get("sha256", {})
+
+    skill_dir = os.path.join(install_dir, name)
+    os.makedirs(skill_dir, exist_ok=True)
+
+    loader = SkillLoader(user_skills_dir=install_dir)
+
+    try:
+        _download_and_install_skill(
+            name=name,
+            skill_entry=skill_entry,
+            skill_dir=skill_dir,
+            registry_url=registry_url,
+            sha256s=sha256s,
+            loader=loader,
+        )
+    except SecurityError:
+        import shutil
+        shutil.rmtree(skill_dir, ignore_errors=True)
+        raise
+
+    # Update local state
+    state_path = os.path.join(install_dir, _REGISTRY_STATE_FILE)
+    local_state: dict[str, str] = {}
+    if os.path.isfile(state_path):
+        try:
+            with open(state_path, "r", encoding="utf-8") as fh:
+                local_state = json.load(fh)
+        except (OSError, json.JSONDecodeError):
+            pass
+    local_state[name] = version
+    try:
+        with open(state_path, "w", encoding="utf-8") as fh:
+            json.dump(local_state, fh, indent=2)
+    except OSError as e:
+        logger.warning("Could not update registry state: %s", e)
+
+    if skill_manager_invalidate_fn:
+        try:
+            skill_manager_invalidate_fn()
+        except Exception as e:
+            logger.warning("SkillManager invalidation failed: %s", e)
+
+    logger.info("Registry skill '%s' v%s installed via install_one", name, version)
+    return {"ok": True, "name": name, "version": version}

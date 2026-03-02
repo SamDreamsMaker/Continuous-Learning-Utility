@@ -84,7 +84,7 @@ class AgentConfig:
     skills_registry_sync_enabled: bool = False   # pull community skills automatically
     skills_registry_sync_interval: int = 86400   # seconds between syncs (24h)
     # Auto-generation
-    skills_auto_generate: bool = False           # generate skills from patterns
+    skills_auto_generate: bool = True            # generate skills from patterns
     skills_auto_publish: bool = False            # push generated skills to registry
     skills_github_token: str = ""               # PAT with repo scope (publishing)
     skills_generate_after_n_tasks: int = 10     # analyze every N completed tasks
