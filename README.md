@@ -1,5 +1,5 @@
 <p align="center">
-  <h1 align="center">CLU</h1>
+  <img src="web/img/CluIcon.png" alt="CLU" width="80" />
   <p align="center"><strong>Continuous Learning Utility</strong></p>
   <p align="center">
     An autonomous, self-healing AI coding agent that runs 24/7.<br>
