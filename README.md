@@ -65,7 +65,7 @@ CLU: thinks → reads existing code → plans the implementation → writes file
 - Plugin architecture for receivers, notifiers, and bridges (WhatsApp, Telegram, etc.)
 - 3-tier discovery: bundled → user (`~/.clu/modules/`) → project (`.clu/modules/`)
 - Lifecycle-managed: auto-start/stop, config-driven enable/disable
-- Bundled: `echo` (test), `whatsapp` (WhatsApp Business Cloud API with voice STT)
+- 6 bundled modules: `echo` (test), `github` (webhooks), `whatsapp` (voice + text), `discord`, `slack`, `desktop-notify`
 
 **Web Dashboard**
 - Real-time streaming via WebSocket

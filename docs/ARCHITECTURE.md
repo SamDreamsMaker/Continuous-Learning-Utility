@@ -102,7 +102,11 @@ CLU/
 │   ├── manager.py                   # ModuleManager: 3-tier discover, start/stop lifecycle
 │   └── bundled/                     # Modules shipped with CLU
 │       ├── echo/                    # Test module (logs events)
-│       └── whatsapp/                # WhatsApp Business Cloud API (text + voice STT)
+│       ├── github/                  # GitHub webhooks bridge (issues + push → tasks)
+│       ├── whatsapp/                # WhatsApp Business Cloud API (text + voice STT)
+│       ├── discord/                 # Discord webhook notifier
+│       ├── slack/                   # Slack webhook notifier
+│       └── desktop-notify/          # OS desktop notifications
 │
 ├── tools/                           # 13 LLM tools
 │   ├── base.py                      # BaseTool abstract class (to_openai_schema)
@@ -316,7 +320,7 @@ THINK → ACT → OBSERVE → repeat → FINISH
 - `ModuleContext` provides sandboxed access: task_queue, alerts, config, FastAPI app
 - `ModuleManifest` from `module.yaml` (name, type, version, config schema)
 - 3-tier discovery: bundled (`modules/bundled/`) → user (`~/.clu/modules/`) → project
-- Bundled modules: `echo` (test), `whatsapp` (WhatsApp Business Cloud API)
+- 6 bundled modules: `echo` (test), `github` (webhooks bridge), `whatsapp` (voice + text bridge), `discord` (notifier), `slack` (notifier), `desktop-notify` (notifier)
 - Auto-start on server launch, auto-stop on shutdown
 
 ### Loop Detection (3 levels)
