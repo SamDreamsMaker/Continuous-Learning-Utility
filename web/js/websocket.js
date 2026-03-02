@@ -4,20 +4,20 @@ function connectWS() {
   ws = new WebSocket(`${proto}://${location.host}/ws/agent`);
 
   ws.onopen = () => {
-    setBadge('badge-ws', 'WS: ok', 'ok');
+    setWsDot('ok');
     hideOverlay();
     log('WebSocket connected', 'ok');
     checkStatus();
   };
 
   ws.onclose = () => {
-    setBadge('badge-ws', 'WS: off', 'err');
+    setWsDot('err');
     setRunning(false);
     log('WebSocket disconnected', 'err');
     setTimeout(connectWS, 3000);
   };
 
-  ws.onerror = () => { setBadge('badge-ws', 'WS: err', 'err'); };
+  ws.onerror = () => { setWsDot('err'); };
 
   ws.onmessage = (e) => {
     handleWSMessage(JSON.parse(e.data));

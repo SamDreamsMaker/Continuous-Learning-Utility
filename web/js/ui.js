@@ -98,6 +98,14 @@ function setBadge(id, text, cls) {
     (el.classList.contains('badge-secondary') ? ' badge-secondary' : '');
 }
 
+function setWsDot(cls) {
+  const el = document.getElementById('badge-ws');
+  if (el) {
+    el.className = `badge-dot ${cls}`;
+    el.title = cls === 'ok' ? 'Server connected' : 'Server disconnected';
+  }
+}
+
 // ===== PROVIDER CONNECTION STATE =====
 // Thin wrapper — UI is driven reactively by connectionState subscriber below.
 function setProviderConnected(connected) {

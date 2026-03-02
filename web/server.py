@@ -120,12 +120,13 @@ async def status():
     source_dir = config.project_source_dir.strip("/").strip("\\")
     file_exts = config.project_file_extensions
     if project and os.path.isdir(project):
-        scan_dir = os.path.join(project, source_dir)
+        scan_dir = os.path.join(project, source_dir) if source_dir else project
         if os.path.isdir(scan_dir):
             project_ok = True
             for root, dirs, files in os.walk(scan_dir):
                 source_file_count += sum(
-                    1 for f in files if any(f.endswith(ext) for ext in file_exts)
+                    1 for f in files
+                    if not file_exts or any(f.endswith(ext) for ext in file_exts)
                 )
 
     return {
@@ -147,7 +148,17 @@ async def status():
         "config": {
             "max_iterations": config.max_iterations,
             "max_total_tokens": config.max_total_tokens,
+            "max_context_tokens": config.max_context_tokens,
             "temperature": config.temperature,
+            "llm_profile": config.llm_profile,
+            "project_name": config.project_name,
+            "project_source_dir": config.project_source_dir,
+            "project_language": config.project_language,
+            "validation_enabled": config.validation_enabled,
+            "heartbeat_enabled": config.heartbeat_enabled,
+            "heartbeat_auto_fix_on_error": config.heartbeat_auto_fix_on_error,
+            "skills_enabled": config.skills_enabled,
+            "skills_auto_generate": config.skills_auto_generate,
         },
     }
 
@@ -176,6 +187,46 @@ async def get_session(session_id: str):
 async def delete_session(session_id: str):
     ok = _session_mgr.delete(session_id)
     return {"deleted": ok}
+
+
+@app.post("/api/config/features")
+async def update_features(body: dict):
+    """Update feature toggles and project settings at runtime."""
+    config = get_config()
+    ALLOWED = {
+        "project_name", "project_source_dir", "project_language",
+        "project_file_extensions",
+        "validation_enabled", "heartbeat_enabled",
+        "heartbeat_auto_fix_on_error", "heartbeat_interval",
+        "heartbeat_large_file_threshold",
+        "skills_enabled", "skills_auto_generate",
+        "skills_registry_sync_enabled",
+        "max_context_tokens",
+    }
+    updated = {}
+    for key, value in body.items():
+        if key in ALLOWED and hasattr(config, key):
+            expected_type = type(getattr(config, key))
+            if expected_type == bool:
+                value = bool(value)
+            elif expected_type == int:
+                value = int(value)
+            elif expected_type == list and isinstance(value, str):
+                value = [v.strip() for v in value.split(",") if v.strip()]
+            setattr(config, key, value)
+            updated[key] = getattr(config, key)
+    return {"ok": True, "updated": updated}
+
+
+@app.post("/api/config/profile")
+async def update_llm_profile(body: dict):
+    """Update the LLM profile at runtime (auto/compact/default)."""
+    config = get_config()
+    profile = body.get("profile", "").strip()
+    if profile not in ("auto", "compact", "default"):
+        return JSONResponse({"error": f"Invalid profile: {profile}"}, status_code=400)
+    config.llm_profile = profile
+    return {"ok": True, "llm_profile": profile}
 
 
 @app.post("/api/config/budget")

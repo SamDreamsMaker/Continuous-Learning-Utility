@@ -1,9 +1,9 @@
 project:
-  name: "unity"
-  language: "csharp"
-  file_extensions: [".cs"]
-  source_dir: "Assets/"
-  framework: "unity"
+  name: "generic"
+  language: "any"
+  file_extensions: []            # empty = scan all files
+  source_dir: ""                 # empty = project root
+  framework: "generic"
 
 api:
   provider: "openai_compat"    # openai_compat | anthropic | google

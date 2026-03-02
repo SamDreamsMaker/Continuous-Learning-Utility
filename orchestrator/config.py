@@ -11,11 +11,11 @@ class AgentConfig:
     """Agent configuration loaded from YAML."""
 
     # Project profile
-    project_name: str = "unity"
-    project_language: str = "csharp"
-    project_file_extensions: list[str] = field(default_factory=lambda: [".cs"])
-    project_source_dir: str = "Assets/"
-    project_framework: str = "unity"
+    project_name: str = "generic"
+    project_language: str = "any"
+    project_file_extensions: list[str] = field(default_factory=list)
+    project_source_dir: str = ""
+    project_framework: str = "generic"
 
     # API settings
     provider: str = "openai_compat"  # openai_compat | anthropic | google
@@ -116,7 +116,7 @@ class AgentConfig:
         return cls(
             project_name=project.get("name", cls.project_name),
             project_language=project.get("language", cls.project_language),
-            project_file_extensions=project.get("file_extensions", [".cs"]),
+            project_file_extensions=project.get("file_extensions", []),
             project_source_dir=project.get("source_dir", cls.project_source_dir),
             project_framework=project.get("framework", cls.project_framework),
             provider=api.get("provider", cls.provider),

@@ -75,10 +75,19 @@ body {
 .header .status-badges {
   display: flex;
   gap: 8px;
+  align-items: center;
   margin-left: auto;
   flex-wrap: wrap;
   justify-content: flex-end;
 }
+.badge-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.badge-dot.ok { background: var(--success); }
+.badge-dot.err { background: var(--error); }
 
 .badge {
   font-size: 11px;
@@ -1140,6 +1149,21 @@ body {
   justify-content: space-between;
 }
 
+/* ===== FEATURE TOGGLES ===== */
+.feature-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 0;
+}
+.feature-row label { font-size: 12px; color: var(--text); }
+.feature-row input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
 /* ===== RESPONSIVE ===== */
 
 /* Tablet: < 1200px - collapsible panel */
@@ -1169,7 +1193,7 @@ body {
   .header h1 { font-size: 13px; }
   .header { padding: 0 8px; gap: 6px; }
   .badge { font-size: 10px; padding: 2px 8px; }
-  .status-badges .badge-secondary { display: none; }
+  .status-badges .badge-dot { display: none; }
 
   .panel { width: 85vw; max-width: 340px; }
 
@@ -1277,7 +1301,7 @@ body {
 @media (max-width: 768px) {
   .nav-btn { padding: 0 10px; font-size: 12px; }
   .status-badges { gap: 4px; }
-  .status-badges .badge-secondary { display: none; }
+  .status-badges .badge-dot { display: none; }
 }
 
 @media (max-width: 480px) {

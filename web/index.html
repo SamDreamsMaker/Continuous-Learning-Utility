@@ -27,8 +27,7 @@
     </nav>
     <div class="status-badges">
       <span id="badge-provider" class="badge err clickable" onclick="switchPage('config',null)" title="LLM Configuration">LLM: ---</span>
-      <span id="badge-project" class="badge err badge-secondary">Project: ---</span>
-      <span id="badge-ws" class="badge err badge-secondary">WS: ---</span>
+      <span id="badge-ws" class="badge-dot err" title="WebSocket"></span>
     </div>
   </header>
 
@@ -189,6 +188,75 @@
             <span class="dot err"></span>
             <span>Not connected</span>
           </div>
+        </div>
+      </section>
+
+      <!-- LLM Profile -->
+      <section class="config-section">
+        <h2>Agent Profile</h2>
+        <div class="provider-config">
+          <div>
+            <label>LLM Profile</label>
+            <select id="cfg-llm-profile" autocomplete="off">
+              <option value="auto">Auto (compact if small context)</option>
+              <option value="default">Default (full prompt, all tools)</option>
+              <option value="compact">Compact (short prompt, core tools)</option>
+            </select>
+          </div>
+          <button class="btn" onclick="applyLlmProfile()">Apply</button>
+          <span id="llm-profile-status" style="font-size:11px;color:var(--text2);"></span>
+        </div>
+      </section>
+
+      <!-- Features -->
+      <section class="config-section">
+        <h2>Features</h2>
+        <div class="provider-config">
+          <div class="feature-row">
+            <label>Heartbeat monitoring</label>
+            <input type="checkbox" id="feat-heartbeat" />
+          </div>
+          <div class="feature-row">
+            <label>Auto-fix on error</label>
+            <input type="checkbox" id="feat-autofix" />
+          </div>
+          <div class="feature-row">
+            <label>C# Validation</label>
+            <input type="checkbox" id="feat-validation" />
+          </div>
+          <div class="feature-row">
+            <label>Skills system</label>
+            <input type="checkbox" id="feat-skills" />
+          </div>
+          <div class="feature-row">
+            <label>Auto-generate skills</label>
+            <input type="checkbox" id="feat-autogen" />
+          </div>
+          <div>
+            <label>Context window (tokens)</label>
+            <input type="number" id="feat-context" placeholder="32000" />
+          </div>
+          <button class="btn" onclick="applyFeatures()">Apply</button>
+        </div>
+      </section>
+
+      <!-- Project -->
+      <section class="config-section">
+        <h2>Project</h2>
+        <div class="provider-config">
+          <div>
+            <label>Source directory</label>
+            <input type="text" id="feat-sourcedir" placeholder="(empty = project root)" />
+          </div>
+          <div>
+            <label>Language</label>
+            <input type="text" id="feat-language" placeholder="any" />
+          </div>
+          <div>
+            <label>File extensions</label>
+            <input type="text" id="feat-extensions" placeholder=".cs, .py (empty = all)" />
+          </div>
+          <button class="btn" onclick="applyProjectConfig()">Apply</button>
         </div>
       </section>
 

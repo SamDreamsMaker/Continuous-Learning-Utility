@@ -39,6 +39,75 @@ async function deleteSession(sessionId) {
   } catch (e) {}
 }
 
+async function applyFeatures() {
+  const body = {
+    heartbeat_enabled: document.getElementById('feat-heartbeat').checked,
+    heartbeat_auto_fix_on_error: document.getElementById('feat-autofix').checked,
+    validation_enabled: document.getElementById('feat-validation').checked,
+    skills_enabled: document.getElementById('feat-skills').checked,
+    skills_auto_generate: document.getElementById('feat-autogen').checked,
+  };
+  const ctx = document.getElementById('feat-context').value;
+  if (ctx) body.max_context_tokens = parseInt(ctx);
+  try {
+    const r = await fetch('/api/config/features', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(body),
+    });
+    const d = await r.json();
+    if (d.ok) log('Features updated', 'ok');
+    else log('Features error: ' + (d.error || 'unknown'), 'err');
+  } catch (e) {
+    log('Features error: ' + e.message, 'err');
+  }
+}
+
+async function applyProjectConfig() {
+  const body = {
+    project_source_dir: document.getElementById('feat-sourcedir').value,
+    project_language: document.getElementById('feat-language').value,
+    project_file_extensions: document.getElementById('feat-extensions').value,
+  };
+  try {
+    const r = await fetch('/api/config/features', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(body),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      log('Project config updated', 'ok');
+      checkStatus();
+    } else {
+      log('Project error: ' + (d.error || 'unknown'), 'err');
+    }
+  } catch (e) {
+    log('Project error: ' + e.message, 'err');
+  }
+}
+
+async function applyLlmProfile() {
+  const profile = document.getElementById('cfg-llm-profile').value;
+  const status = document.getElementById('llm-profile-status');
+  try {
+    const r = await fetch('/api/config/profile', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ profile }),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      log(`LLM profile: ${d.llm_profile}`, 'ok');
+      if (status) status.textContent = `Active: ${d.llm_profile}`;
+    } else {
+      log('Profile error: ' + (d.error || 'unknown'), 'err');
+    }
+  } catch (e) {
+    log('Profile error: ' + e.message, 'err');
+  }
+}
+
 async function updateBudgetConfig() {
   const iterations = document.getElementById('cfg-iterations').value;
   const tokens = document.getElementById('cfg-tokens').value;
