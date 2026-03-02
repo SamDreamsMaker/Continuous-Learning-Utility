@@ -134,6 +134,7 @@ function switchPage(pageName, btn) {
     costs: 'initCosts',
     skills: 'initSkills',
     context: 'initContext',
+    modules: 'loadModules',
     config: 'loadSessions',
   };
   const fn = window[initFnNames[pageName]];

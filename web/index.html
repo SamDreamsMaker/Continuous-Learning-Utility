@@ -23,6 +23,7 @@
       <button class="nav-btn" onclick="switchPage('costs',this)">Costs</button>
       <button class="nav-btn" data-tab="skills" onclick="switchPage('skills',this)">Skills</button>
       <button class="nav-btn" onclick="switchPage('context',this)">Context<span class="nav-badge" id="context-badge" style="display:none;"></span></button>
+      <button class="nav-btn" onclick="switchPage('modules',this)">Modules</button>
       <button class="nav-btn settings" onclick="switchPage('config',this)" title="Settings">&#9881;</button>
     </nav>
     <div class="status-badges">
@@ -145,6 +146,11 @@
   <!-- PAGE: Context -->
   <div class="page" id="page-context">
     <div class="page-content" id="context-content"><div class="empty-state">Loading...</div></div>
+  </div>
+
+  <!-- PAGE: Modules -->
+  <div class="page" id="page-modules">
+    <div class="page-content" id="modules-content"><div class="empty-state">Loading...</div></div>
   </div>
 
   <!-- PAGE: Config / Settings -->
@@ -318,6 +324,7 @@
 <script src="/js/costs.js"></script>
 <script src="/js/skills.js"></script>
 <script src="/js/context.js"></script>
+<script src="/js/modules_tab.js"></script>
 <script src="/js/websocket.js"></script>
 <script src="/js/main.js"></script>
 </body>

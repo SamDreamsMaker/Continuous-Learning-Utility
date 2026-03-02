@@ -1,0 +1,6 @@
+name: echo
+version: "1.0.0"
+type: notifier
+description: "Test module that logs task events. Use to verify the module system works."
+author: "CLU"
+dependencies: []

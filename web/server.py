@@ -32,6 +32,7 @@ from skills.loader import SkillLoader
 from skills.manager import SkillManager
 from skills.state import SkillStateStore
 from orchestrator.context_store import ContextStore
+from modules.manager import ModuleManager
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +49,7 @@ _provider: LLMProvider | None = None
 _skill_manager: SkillManager | None = None
 _skill_state: SkillStateStore | None = None
 _context_store: ContextStore | None = None
+_module_manager: ModuleManager | None = None
 
 
 def get_config() -> AgentConfig:
@@ -963,6 +965,55 @@ async def test_all_skills():
     }
 
 
+# ---- Modules ----
+
+def get_module_manager() -> ModuleManager:
+    """Get or initialize the global ModuleManager."""
+    global _module_manager
+    if _module_manager is None:
+        config = get_config()
+        if not config.modules_enabled:
+            _module_manager = ModuleManager(modules_config={})
+        else:
+            _module_manager = ModuleManager(
+                modules_config=config.modules_config,
+                task_queue=_task_queue,
+                alert_manager=_alerts,
+                project_path=get_project_path(),
+                app=app,
+            )
+            _module_manager.discover(project_path=get_project_path())
+    return _module_manager
+
+
+@app.get("/api/modules")
+async def list_modules():
+    mgr = get_module_manager()
+    return {"modules": mgr.status()}
+
+
+@app.post("/api/modules/{name}/start")
+async def start_module(name: str):
+    mgr = get_module_manager()
+    ok = await mgr.start_one(name)
+    return {"ok": ok, "name": name}
+
+
+@app.post("/api/modules/{name}/stop")
+async def stop_module(name: str):
+    mgr = get_module_manager()
+    ok = await mgr.stop_one(name)
+    return {"ok": ok, "name": name}
+
+
+@app.post("/api/modules/{name}/toggle")
+async def toggle_module(name: str):
+    config = get_config()
+    mod_cfg = config.modules_config.setdefault(name, {})
+    mod_cfg["enabled"] = not mod_cfg.get("enabled", True)
+    return {"ok": True, "name": name, "enabled": mod_cfg["enabled"]}
+
+
 # ---- Skills: pattern analysis & generation ----
 
 @app.get("/api/skills/candidates")
@@ -1253,6 +1304,25 @@ async def _run_agent_streaming(
         on_event=on_event,
         resume_session_id=resume_session_id,
     )
+
+
+# ---- Module lifecycle events ----
+
+@app.on_event("startup")
+async def _startup_modules():
+    config = get_config()
+    if config.modules_enabled and config.modules_auto_start:
+        mgr = get_module_manager()
+        results = await mgr.start_all()
+        started = sum(1 for v in results.values() if v)
+        if started:
+            logger.info("Auto-started %d module(s)", started)
+
+
+@app.on_event("shutdown")
+async def _shutdown_modules():
+    if _module_manager:
+        await _module_manager.stop_all()
 
 
 # Serve static files (CSS, JS, img)

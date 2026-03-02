@@ -1144,6 +1144,19 @@ body {
   justify-content: space-between;
 }
 
+/* ===== MODULES ===== */
+.module-list { display: flex; flex-direction: column; gap: 2px; }
+.module-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 12px; border-radius: 6px; background: var(--surface);
+  gap: 12px;
+}
+.module-info { flex: 1; min-width: 0; }
+.module-header { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+.module-version { color: var(--text2); font-size: 10px; }
+.module-desc { font-size: 11px; color: var(--text2); margin-top: 2px; }
+.module-actions { display: flex; gap: 4px; flex-shrink: 0; }
+
 /* ===== FEATURE TOGGLES ===== */
 .feature-row {
   display: flex;

@@ -112,3 +112,13 @@ skills:
   generate_after_n_tasks: 10     # Analyze patterns every N completed tasks
   generate_min_occurrences: 3    # Pattern must appear at least this many times
   generate_min_success_rate: 0.7 # Minimum success rate to consider a skill candidate
+
+# ---- Modules (external integrations) ----
+modules:
+  enabled: true                  # Master switch for module system
+  auto_start: true               # Auto-start enabled modules on server launch
+  # Per-module config (keyed by module name):
+  # whatsapp:
+  #   enabled: true
+  #   phone_number_id: "..."
+  #   access_token: "..."

@@ -92,6 +92,11 @@ class AgentConfig:
     skills_generate_min_occurrences: int = 3    # pattern must appear this many times
     skills_generate_min_success_rate: float = 0.7  # min success rate for candidate
 
+    # Modules
+    modules_enabled: bool = True
+    modules_auto_start: bool = True
+    modules_config: dict = field(default_factory=dict)  # per-module config
+
     @classmethod
     def from_yaml(cls, path: str) -> "AgentConfig":
         """Load configuration from a YAML file."""
@@ -112,6 +117,7 @@ class AgentConfig:
         tools_section = data.get("tools", {})
         paths = data.get("paths", {})
         skills_section = data.get("skills", {})
+        modules_section = data.get("modules", {})
 
         return cls(
             project_name=project.get("name", cls.project_name),
@@ -173,6 +179,9 @@ class AgentConfig:
             skills_generate_after_n_tasks=skills_section.get("generate_after_n_tasks", cls.skills_generate_after_n_tasks),
             skills_generate_min_occurrences=skills_section.get("generate_min_occurrences", cls.skills_generate_min_occurrences),
             skills_generate_min_success_rate=skills_section.get("generate_min_success_rate", cls.skills_generate_min_success_rate),
+            modules_enabled=modules_section.get("enabled", cls.modules_enabled),
+            modules_auto_start=modules_section.get("auto_start", cls.modules_auto_start),
+            modules_config={k: v for k, v in modules_section.items() if isinstance(v, dict)},
         )
 
 
