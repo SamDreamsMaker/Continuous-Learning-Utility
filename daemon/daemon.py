@@ -308,13 +308,44 @@ def main():
         schedules_path=sched_path if os.path.isfile(sched_path) else None,
     )
     print(f"  Loaded {len(daemon.scheduler.schedules)} schedules")
-    # Load notification channels from config
+    # Load notification channels from module configs
     import yaml
     try:
         with open(config_path, "r", encoding="utf-8") as f:
             raw_config = yaml.safe_load(f) or {}
+        from orchestrator.secrets import get_secret
+        modules_cfg = raw_config.get("modules", {})
+        notifier = NotificationManager()
+
+        # Discord module
+        discord_cfg = modules_cfg.get("discord", {})
+        if discord_cfg.get("enabled"):
+            url = get_secret("discord_webhook", discord_cfg.get("webhook_url", ""))
+            if url:
+                from daemon.notifiers import DiscordNotifier
+                notifier.add_channel("discord", DiscordNotifier(url))
+
+        # Slack module
+        slack_cfg = modules_cfg.get("slack", {})
+        if slack_cfg.get("enabled"):
+            url = get_secret("slack_webhook", slack_cfg.get("webhook_url", ""))
+            if url:
+                from daemon.notifiers import SlackNotifier
+                notifier.add_channel("slack", SlackNotifier(url))
+
+        # Desktop notifications module
+        desktop_cfg = modules_cfg.get("desktop-notify", {})
+        if desktop_cfg.get("enabled"):
+            from daemon.notifiers import DesktopNotifier
+            notifier.add_channel("desktop", DesktopNotifier())
+
+        # Backward compat: also check old notifications section
         notif_config = raw_config.get("notifications", {})
-        daemon.notifier = NotificationManager.from_config(notif_config)
+        if notif_config and not notifier.channels:
+            daemon.notifier = NotificationManager.from_config(notif_config)
+        else:
+            daemon.notifier = notifier
+
         if daemon.notifier.channels:
             print(f"  Notifications: {', '.join(daemon.notifier.channels)}")
     except Exception as e:
