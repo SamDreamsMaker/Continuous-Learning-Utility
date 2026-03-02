@@ -221,6 +221,10 @@ class ResilientProvider(LLMProvider):
 
     def _is_retryable(self, error: Exception) -> bool:
         """Check if the error is transient and worth retrying."""
+        # Context overflow is permanent — never retry
+        from orchestrator.exceptions import ContextOverflowError
+        if isinstance(error, ContextOverflowError):
+            return False
         if isinstance(error, self.RETRYABLE_ERRORS):
             return True
         msg = str(error).lower()

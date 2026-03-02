@@ -16,6 +16,7 @@ from orchestrator.tool_dispatcher import ToolDispatcher
 from orchestrator.session import SessionManager
 from orchestrator.providers.base import LLMProvider
 from orchestrator import events as evt
+from orchestrator.exceptions import ContextOverflowError
 from tools.registry import ToolRegistry
 from sandbox.path_validator import PathValidator
 from sandbox.backup_manager import BackupManager
@@ -227,6 +228,21 @@ class AgentRunner:
                     temperature=self.config.temperature,
                     seed=self.config.seed,
                     max_tokens=self.config.max_tokens,
+                )
+            except ContextOverflowError as e:
+                logger.error("Context overflow: %s", e)
+                await emit(evt.error(
+                    f"System prompt too large for model context window "
+                    f"({self.config.max_context_tokens} tokens). "
+                    "Increase context length in LLM settings or reduce user context/skills."
+                ))
+                return AgentResult(
+                    success=False,
+                    error=str(e),
+                    iterations=self.budget.iteration,
+                    tokens=self.budget.total_tokens,
+                    session_id=session_id,
+                    files_modified=self.backup.modified_files,
                 )
             except Exception as e:
                 logger.error("LLM error: %s", e)
@@ -473,13 +489,49 @@ class AgentRunner:
 
         return prompt
 
+    # System prompt should use at most 50% of context window
+    # (leaving room for tool schemas, conversation history, and response)
+    PROMPT_BUDGET_RATIO = 0.5
+
     def _build_system_prompt_for_task(self, task: str) -> str:
         """Build system prompt with contextual skill injections for a specific task."""
         base = self._build_system_prompt()
         skill_ctx = self.skill_manager.get_prompt_injections(task)
         if skill_ctx:
-            return f"{base}\n\n{skill_ctx}"
-        return base
+            base = f"{base}\n\n{skill_ctx}"
+        return self._enforce_prompt_budget(base)
+
+    def _enforce_prompt_budget(self, prompt: str) -> str:
+        """Trim optional sections if the system prompt exceeds the context budget.
+
+        Uses conservative token estimation (3 chars ≈ 1 token) and strips
+        sections in order of decreasing expendability:
+        skills → memory → user context.
+        """
+        budget = int(self.config.max_context_tokens * self.PROMPT_BUDGET_RATIO)
+        if budget <= 0 or len(prompt) // 3 <= budget:
+            return prompt
+
+        logger.warning(
+            "System prompt too large (~%d tokens, budget %d). Trimming optional sections.",
+            len(prompt) // 3, budget,
+        )
+
+        # Strip in priority order (least important first)
+        strip_markers = [
+            "\n\n## Skill Context",
+            "\n## Agent Memory",
+            "\n## User Context",
+        ]
+        for marker in strip_markers:
+            idx = prompt.find(marker)
+            if idx >= 0:
+                prompt = prompt[:idx]
+                logger.info("Stripped '%s' section from system prompt", marker.strip())
+                if len(prompt) // 3 <= budget:
+                    break
+
+        return prompt
 
     def _is_false_completion(self, content: str) -> bool:
         """Detect when the LLM responds with intent text instead of using tools."""

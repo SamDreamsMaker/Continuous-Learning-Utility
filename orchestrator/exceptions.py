@@ -29,3 +29,8 @@ class ValidationError(AgentError):
 class BudgetExhaustedError(AgentError):
     """Raised when iteration or token budget is exhausted."""
     pass
+
+
+class ContextOverflowError(AgentError):
+    """Raised when the prompt exceeds the model's context window."""
+    pass

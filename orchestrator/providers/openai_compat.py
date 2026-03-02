@@ -84,6 +84,18 @@ class OpenAICompatProvider(LLMProvider):
                 time.sleep(2 ** attempt)
 
             except openai.APIStatusError as e:
+                # Context overflow → fail immediately (no retry)
+                msg = str(e).lower()
+                if e.status_code == 400 and (
+                    "n_keep" in msg or "n_ctx" in msg
+                    or "context_length_exceeded" in msg
+                    or "maximum context length" in msg
+                ):
+                    from orchestrator.exceptions import ContextOverflowError
+                    raise ContextOverflowError(
+                        f"Prompt exceeds model context window: {e}"
+                    ) from e
+
                 logger.warning(
                     "API error (attempt %d/%d): %s",
                     attempt + 1, max_retries, e,
