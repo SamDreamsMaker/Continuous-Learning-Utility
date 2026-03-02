@@ -23,8 +23,8 @@ CLU is an autonomous AI coding agent with a persistent daemon, task queue, and w
 It works with **any language and framework** out of the box. Point it at your project, configure a YAML profile, and let it work.
 
 ```
-You: "Refactor the PlayerController to use a state machine pattern"
-CLU: thinks → reads existing code → plans the refactor → writes files → validates → done
+You: "Add user authentication with JWT tokens"
+CLU: thinks → reads existing code → plans the implementation → writes files → done
 ```
 
 ## Features
@@ -192,7 +192,7 @@ python main.py --daemon stop
 
 ## Configuration
 
-CLU uses a single YAML configuration file. The default config is tuned for Unity/C# projects, but any language works by changing a few fields.
+CLU uses a single YAML configuration file. The default config is generic (any language), with optional profiles for specific frameworks like Unity/C#.
 
 ### `config/default.yaml`
 

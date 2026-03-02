@@ -17,8 +17,8 @@ scheduled tasks, multi-agent roles, and external integrations.
 - **Daemon**: Separate process polling a SQLite task queue 24/7
 
 CLU is **language-agnostic** — configure `project.language`, `project.source_dir`, and
-`project.file_extensions` in YAML to target any codebase. Unity/C# ships as a default
-profile; a Python profile is included as an example.
+`project.file_extensions` in YAML to target any codebase. The default config is generic
+(any language). Unity/C# and Python profiles are included as examples.
 
 ## 2. Project Tree
 
@@ -37,7 +37,7 @@ CLU/
 │   ├── default.yaml                 # Main config (API, LLM, budget, security, validation, tools)
 │   ├── schedules.yaml               # Cron schedule definitions
 │   └── profiles/                    # Language/framework profiles
-│       ├── unity.yaml               # Unity/C# profile (default behavior)
+│       ├── unity.yaml               # Unity/C# profile (optional)
 │       └── python.yaml              # Python project example
 │
 ├── daemon/                          # 24/7 daemon subsystem
