@@ -1,0 +1,13 @@
+name: github
+version: "1.0.0"
+type: bridge
+description: "GitHub webhooks — issues and push events auto-enqueue tasks"
+author: "CLU"
+dependencies: []
+
+config:
+  github_secret:
+    type: string
+    required: false
+    secret: true
+    description: "HMAC-SHA256 secret for webhook signature verification"

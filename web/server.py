@@ -26,7 +26,7 @@ from daemon.task_queue import TaskQueue, TaskStatus
 from daemon.heartbeat import HeartbeatManager, HeartbeatConfig
 from daemon.alerts import AlertManager
 from daemon.scheduler import TaskScheduler
-from daemon.webhooks import WebhookHandler
+# WebhookHandler now used by GitHub module (modules/bundled/github/)
 from daemon import service as daemon_service
 from skills.loader import SkillLoader
 from skills.manager import SkillManager
@@ -664,47 +664,9 @@ async def clear_alerts():
 
 
 # ---- Webhook endpoints ----
-
-_webhook_handler = WebhookHandler(queue=_task_queue)
-
-
-@app.post("/api/webhooks/github")
-async def github_webhook(request: Request):
-    """Receive GitHub webhook events."""
-    _webhook_handler.project_path = get_project_path()
-
-    body = await request.body()
-    signature = request.headers.get("X-Hub-Signature-256", "")
-    event_type = request.headers.get("X-GitHub-Event", "")
-
-    if not _webhook_handler.verify_github_signature(body, signature):
-        return JSONResponse({"error": "Invalid signature"}, status_code=401)
-
-    try:
-        payload = json.loads(body)
-    except json.JSONDecodeError:
-        return JSONResponse({"error": "Invalid JSON"}, status_code=400)
-
-    result = _webhook_handler.handle_github(event_type, payload)
-    return {
-        "ok": result.ok,
-        "task_id": result.task_id,
-        "message": result.message,
-        "skipped": result.skipped,
-    }
-
-
-@app.post("/api/webhooks/generic")
-async def generic_webhook(body: dict):
-    """Receive a generic webhook with a task payload."""
-    _webhook_handler.project_path = get_project_path()
-    result = _webhook_handler.handle_generic(body)
-    status = 200 if result.ok else 400
-    return JSONResponse({
-        "ok": result.ok,
-        "task_id": result.task_id,
-        "message": result.message,
-    }, status_code=status)
+# GitHub and generic webhooks are now handled by the GitHub module
+# (modules/bundled/github/). Enable it in config: modules.github.enabled: true
+# Endpoints: /api/modules/github/webhook, /api/modules/github/generic
 
 
 # ---- Memory endpoints ----

@@ -118,6 +118,9 @@ modules:
   enabled: true                  # Master switch for module system
   auto_start: true               # Auto-start enabled modules on server launch
   # Per-module config (keyed by module name):
+  github:
+    enabled: false                 # Set true to receive GitHub webhook events
+    github_secret: ""              # Store via: python main.py --secret set github_github_secret VALUE
   whatsapp:
     enabled: false                 # Set true + configure tokens to activate
     access_token: ""               # Store via: python main.py --secret set whatsapp_access_token VALUE
