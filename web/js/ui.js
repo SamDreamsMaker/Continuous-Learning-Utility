@@ -135,7 +135,7 @@ function switchPage(pageName, btn) {
     skills: 'initSkills',
     context: 'initContext',
     modules: 'loadModules',
-    config: 'loadSessions',
+    config: 'initConfigPage',
   };
   const fn = window[initFnNames[pageName]];
   if (typeof fn === 'function') fn();

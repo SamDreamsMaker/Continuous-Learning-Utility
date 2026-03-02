@@ -97,6 +97,24 @@ class AgentConfig:
     modules_auto_start: bool = True
     modules_config: dict = field(default_factory=dict)  # per-module config
 
+    def _resolve_secrets(self):
+        """Resolve secret fields from OS keyring / env vars."""
+        from orchestrator.secrets import get_secret, is_secret_field
+
+        for field_name in list(vars(self)):
+            if is_secret_field(field_name) and isinstance(getattr(self, field_name), str):
+                current = getattr(self, field_name)
+                resolved = get_secret(field_name, current)
+                setattr(self, field_name, resolved)
+
+        # Also resolve secrets in per-module config dicts
+        for mod_name, mod_cfg in self.modules_config.items():
+            if not isinstance(mod_cfg, dict):
+                continue
+            for key, val in mod_cfg.items():
+                if is_secret_field(key) and isinstance(val, str):
+                    mod_cfg[key] = get_secret(f"{mod_name}_{key}", val)
+
     @classmethod
     def from_yaml(cls, path: str) -> "AgentConfig":
         """Load configuration from a YAML file."""
@@ -119,7 +137,7 @@ class AgentConfig:
         skills_section = data.get("skills", {})
         modules_section = data.get("modules", {})
 
-        return cls(
+        config = cls(
             project_name=project.get("name", cls.project_name),
             project_language=project.get("language", cls.project_language),
             project_file_extensions=project.get("file_extensions", []),
@@ -183,6 +201,10 @@ class AgentConfig:
             modules_auto_start=modules_section.get("auto_start", cls.modules_auto_start),
             modules_config={k: v for k, v in modules_section.items() if isinstance(v, dict)},
         )
+
+        # Resolve secrets from OS keyring / env vars
+        config._resolve_secrets()
+        return config
 
 
 # Module-level config singleton

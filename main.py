@@ -229,6 +229,12 @@ def main():
         metavar="COMMAND",
         help="Skills commands: 'list' to show loaded skills, 'test' to run skill tests",
     )
+    parser.add_argument(
+        "--secret",
+        nargs="+",
+        metavar="ARG",
+        help="Manage secrets: set <name> <value>, get <name>, delete <name>, list",
+    )
 
     args = parser.parse_args()
 
@@ -236,6 +242,34 @@ def main():
     agent_dir = os.path.dirname(os.path.abspath(__file__))
     config_path = os.path.join(agent_dir, args.config) if not os.path.isabs(args.config) else args.config
     project_path = os.path.abspath(args.project) if args.project else None
+
+    # Secret management (no project required)
+    if args.secret:
+        from orchestrator.secrets import get_secret, set_secret, delete_secret, list_secrets
+        action = args.secret[0]
+        if action == "set" and len(args.secret) >= 3:
+            set_secret(args.secret[1], args.secret[2])
+            print(f"Secret '{args.secret[1]}' stored in OS keyring.")
+        elif action == "get" and len(args.secret) >= 2:
+            val = get_secret(args.secret[1])
+            if val:
+                masked = "****" + val[-4:] if len(val) > 4 else "****"
+                print(f"{args.secret[1]}: {masked}")
+            else:
+                print(f"{args.secret[1]}: (not set)")
+        elif action == "delete" and len(args.secret) >= 2:
+            delete_secret(args.secret[1])
+            print(f"Secret '{args.secret[1]}' removed.")
+        elif action == "list":
+            stored = list_secrets()
+            if stored:
+                for name in stored:
+                    print(f"  {name}: stored in keyring")
+            else:
+                print("  No secrets stored in keyring.")
+        else:
+            print("Usage: --secret set <name> <value> | get <name> | delete <name> | list")
+        return
 
     # Skills commands (no project required)
     if args.skills:

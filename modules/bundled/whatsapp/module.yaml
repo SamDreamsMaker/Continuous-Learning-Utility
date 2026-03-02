@@ -1,0 +1,31 @@
+name: whatsapp
+version: "1.0.0"
+type: bridge
+description: "WhatsApp Business Cloud API — receive text and voice messages, send replies"
+author: "CLU"
+dependencies: []
+
+config:
+  access_token:
+    type: string
+    required: true
+    secret: true
+    description: "WhatsApp Business API permanent token"
+  phone_number_id:
+    type: string
+    required: true
+    description: "WhatsApp Business phone number ID"
+  app_secret:
+    type: string
+    required: true
+    secret: true
+    description: "Meta app secret for webhook signature verification"
+  webhook_verify_token:
+    type: string
+    required: false
+    description: "Token for webhook registration challenge (default: clu)"
+  whisper_api_key:
+    type: string
+    required: false
+    secret: true
+    description: "OpenAI API key for voice message transcription (Whisper)"

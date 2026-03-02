@@ -1,3 +1,8 @@
+# Secrets (never commit credentials)
+.env
+.env.*
+config/local.yaml
+
 # Python
 __pycache__/
 *.py[cod]

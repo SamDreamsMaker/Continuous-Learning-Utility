@@ -1157,6 +1157,13 @@ body {
 .module-desc { font-size: 11px; color: var(--text2); margin-top: 2px; }
 .module-actions { display: flex; gap: 4px; flex-shrink: 0; }
 
+/* ===== SECRETS ===== */
+.secret-row { padding: 6px 0; border-bottom: 1px solid var(--border); }
+.secret-row:last-child { border-bottom: none; }
+.secret-header { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+.secret-label { font-size: 11px; color: var(--text); }
+.secret-status { font-size: 10px; color: var(--text2); }
+
 /* ===== FEATURE TOGGLES ===== */
 .feature-row {
   display: flex;

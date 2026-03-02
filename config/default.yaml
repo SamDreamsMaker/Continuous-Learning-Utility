@@ -8,7 +8,7 @@ project:
 api:
   provider: "openai_compat"    # openai_compat | anthropic | google
   base_url: "http://localhost:1234/v1"
-  api_key: ""                  # empty = env var or not needed for local
+  api_key: ""                  # Resolved from: OS keyring → CLU_API_KEY env → this value
   model: "qwen/qwen3-coder-30b"
 
 llm:
@@ -118,7 +118,11 @@ modules:
   enabled: true                  # Master switch for module system
   auto_start: true               # Auto-start enabled modules on server launch
   # Per-module config (keyed by module name):
-  # whatsapp:
-  #   enabled: true
-  #   phone_number_id: "..."
-  #   access_token: "..."
+  whatsapp:
+    enabled: false                 # Set true + configure tokens to activate
+    access_token: ""               # Store via: python main.py --secret set whatsapp_access_token VALUE
+    phone_number_id: ""            # WhatsApp phone number ID (not secret)
+    app_secret: ""                 # Store via: python main.py --secret set whatsapp_app_secret VALUE
+    webhook_verify_token: "clu"    # Token for webhook registration challenge
+    whisper_api_key: ""            # Store via: python main.py --secret set whatsapp_whisper_api_key VALUE
+    whisper_model: "whisper-1"     # Whisper model for STT

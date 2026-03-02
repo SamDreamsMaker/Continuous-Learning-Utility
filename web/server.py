@@ -965,6 +965,34 @@ async def test_all_skills():
     }
 
 
+# ---- Secrets (keyring) ----
+
+@app.get("/api/secrets")
+async def list_secrets_api():
+    """List stored secret names (never exposes values)."""
+    from orchestrator.secrets import list_secrets
+    return {"secrets": list_secrets()}
+
+
+@app.post("/api/secrets/{name}")
+async def set_secret_api(name: str, body: dict):
+    """Store a secret in the OS keyring."""
+    from orchestrator.secrets import set_secret
+    value = body.get("value", "")
+    if not value:
+        return JSONResponse({"error": "value is required"}, status_code=400)
+    set_secret(name, value)
+    return {"ok": True, "name": name}
+
+
+@app.delete("/api/secrets/{name}")
+async def delete_secret_api(name: str):
+    """Remove a secret from the OS keyring."""
+    from orchestrator.secrets import delete_secret
+    delete_secret(name)
+    return {"ok": True, "name": name}
+
+
 # ---- Modules ----
 
 def get_module_manager() -> ModuleManager:

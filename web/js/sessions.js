@@ -69,6 +69,81 @@ async function deleteSession(sessionId) {
   } catch (e) {}
 }
 
+// ===== SECRETS (Keyring) =====
+const KNOWN_SECRETS = [
+  { name: 'whatsapp_access_token', label: 'WhatsApp Token' },
+  { name: 'whatsapp_app_secret', label: 'WhatsApp App Secret' },
+  { name: 'whisper_api_key', label: 'Whisper API Key' },
+  { name: 'github_token', label: 'GitHub Token' },
+  { name: 'discord_webhook', label: 'Discord Webhook' },
+  { name: 'slack_webhook', label: 'Slack Webhook' },
+];
+
+async function loadSecrets() {
+  try {
+    const r = await fetch('/api/secrets');
+    const d = await r.json();
+    const stored = new Set(d.secrets || []);
+    const el = document.getElementById('secrets-list');
+    if (!el) return;
+
+    el.innerHTML = KNOWN_SECRETS.map(s => {
+      const isStored = stored.has(s.name);
+      const dot = isStored ? 'ok' : '';
+      const status = isStored ? 'stored' : 'not set';
+      const deleteBtn = isStored
+        ? `<button class="btn sm danger" onclick="deleteSecretUI('${s.name}')">&#10005;</button>`
+        : '';
+      return `<div class="secret-row">
+        <div class="secret-header">
+          <span class="secret-label">${escHtml(s.label)}</span>
+          <span class="badge-dot ${dot}" style="display:inline-block;"></span>
+          <span class="secret-status">${status}</span>
+        </div>
+        <div style="display:flex;gap:4px;">
+          <input type="password" id="secret-${s.name}" placeholder="${s.name}" style="flex:1;" />
+          <button class="btn sm" onclick="saveSecretUI('${s.name}')">Save</button>
+          ${deleteBtn}
+        </div>
+      </div>`;
+    }).join('');
+  } catch (e) {
+    log('Secrets error: ' + e.message, 'err');
+  }
+}
+
+async function saveSecretUI(name) {
+  const input = document.getElementById('secret-' + name);
+  const value = input ? input.value.trim() : '';
+  if (!value) { log('Enter a value first', 'warn'); return; }
+  try {
+    const r = await fetch(`/api/secrets/${name}`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ value }),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      log(`Secret '${name}' saved to keyring`, 'ok');
+      if (input) input.value = '';
+      loadSecrets();
+    }
+  } catch (e) {
+    log('Secret save error: ' + e.message, 'err');
+  }
+}
+
+async function deleteSecretUI(name) {
+  try {
+    await fetch(`/api/secrets/${name}`, { method: 'DELETE' });
+    log(`Secret '${name}' removed`, 'ok');
+    loadSecrets();
+  } catch (e) {
+    log('Secret delete error: ' + e.message, 'err');
+  }
+}
+
+// ===== FEATURES =====
 async function applyFeatures() {
   const body = {
     heartbeat_enabled: document.getElementById('feat-heartbeat').checked,
@@ -161,4 +236,9 @@ async function updateBudgetConfig() {
   } catch (e) {
     log('Budget error: ' + e.message, 'err');
   }
+}
+
+function initConfigPage() {
+  loadSessions();
+  loadSecrets();
 }
