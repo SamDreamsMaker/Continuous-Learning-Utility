@@ -81,10 +81,7 @@ heartbeat:
     - todo_markers
     - large_files
 
-notifications:
-  desktop: false                 # OS desktop notifications (Windows toast / macOS / Linux)
-  discord_webhook: ""            # Discord webhook URL (leave empty to disable)
-  slack_webhook: ""              # Slack webhook URL (leave empty to disable)
+# notifications: (migrated to modules — see modules.discord, modules.slack, modules.desktop-notify)
 
 webhooks:
   github_secret: ""              # GitHub webhook secret for signature verification
@@ -129,3 +126,11 @@ modules:
     webhook_verify_token: "clu"    # Token for webhook registration challenge
     whisper_api_key: ""            # Store via: python main.py --secret set whatsapp_whisper_api_key VALUE
     whisper_model: "whisper-1"     # Whisper model for STT
+  discord:
+    enabled: false                 # Discord webhook notifications
+    webhook_url: ""                # Store via: python main.py --secret set discord_webhook URL
+  slack:
+    enabled: false                 # Slack webhook notifications
+    webhook_url: ""                # Store via: python main.py --secret set slack_webhook URL
+  desktop-notify:
+    enabled: false                 # OS desktop notifications (toast/osascript/notify-send)

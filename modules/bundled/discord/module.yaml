@@ -1,0 +1,13 @@
+name: discord
+version: "1.0.0"
+type: notifier
+description: "Discord webhook notifications for task completion and failure events"
+author: "CLU"
+dependencies: []
+
+config:
+  webhook_url:
+    type: string
+    required: true
+    secret: true
+    description: "Discord webhook URL"

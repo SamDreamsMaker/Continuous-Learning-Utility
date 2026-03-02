@@ -1289,11 +1289,30 @@ async def _run_agent_streaming(
     async def on_event(event: AgentEvent):
         await ws.send_json({"type": event.type, **event.data})
 
-    await runner.run(
+    result = await runner.run(
         task=task,
         on_event=on_event,
         resume_session_id=resume_session_id,
     )
+
+    # Dispatch notifications to running notifier modules
+    _notify_modules(task, result)
+
+
+def _notify_modules(task: str, result):
+    """Send task result to all running notifier modules."""
+    if _module_manager is None:
+        return
+    title = f"Task {'completed' if result.success else 'failed'}"
+    message = f"{task[:80]} — {result.iterations} iter, {result.tokens} tokens"
+    level = "info" if result.success else "error"
+    for mod_name in ["discord", "slack", "desktop-notify"]:
+        mod = _module_manager.get(mod_name)
+        if mod and hasattr(mod, "send"):
+            try:
+                mod.send(title, message, level)
+            except Exception:
+                pass
 
 
 # ---- Module lifecycle events ----

@@ -1,0 +1,6 @@
+name: desktop-notify
+version: "1.0.0"
+type: notifier
+description: "OS desktop notifications (Windows toast, macOS, Linux notify-send)"
+author: "CLU"
+dependencies: []
