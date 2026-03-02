@@ -122,3 +122,29 @@ class ProviderConfigStore {
 }
 
 const providerStore = new ProviderConfigStore();
+
+// ===== CONNECTION STATE =====
+// Single source of truth for send button + setup card.
+// UI subscribes once; all status changes flow here automatically.
+const connectionState = (() => {
+  let _connected = false;
+  const _subs = [];
+  return {
+    get connected() { return _connected; },
+    set(val) {
+      val = !!val;
+      if (val === _connected) return;
+      _connected = val;
+      _subs.forEach(fn => fn(_connected));
+    },
+    subscribe(fn) {
+      _subs.push(fn);
+      fn(_connected); // fire immediately with current value
+    },
+  };
+})();
+
+// Sync connectionState whenever providerStore status changes
+providerStore.subscribe((state) => {
+  connectionState.set(state.status === true);
+});

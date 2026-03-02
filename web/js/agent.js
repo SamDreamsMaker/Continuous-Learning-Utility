@@ -6,6 +6,11 @@ function setCurrentProject(path) {
 }
 
 function sendTask() {
+  const sendBtn = document.getElementById('send-btn');
+  if (!connectionState.connected) {
+    switchPage('config', document.querySelector('.nav-btn[onclick*="config"]'));
+    return;
+  }
   const input = document.getElementById('task-input');
   const task = input.value.trim();
   if (!task || isRunning || !ws || ws.readyState !== WebSocket.OPEN) return;

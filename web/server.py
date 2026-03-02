@@ -78,7 +78,7 @@ def set_provider(provider: LLMProvider):
 def get_project_path() -> str:
     global _project_path
     if _project_path is None:
-        _project_path = os.environ.get("AGENT_PROJECT_PATH", "")
+        _project_path = os.environ.get("AGENT_PROJECT_PATH", os.getcwd())
     return _project_path
 
 
@@ -752,10 +752,11 @@ async def create_context_item(request: Request):
         return JSONResponse({"error": "Invalid JSON"}, status_code=400)
     name = (body.get("name") or "").strip()
     content = body.get("content") or ""
+    scope = (body.get("scope") or "always").strip()
     if not name:
         return JSONResponse({"error": "name is required"}, status_code=400)
     store = get_context_store()
-    item = store.add_item(name=name, content=content)
+    item = store.add_item(name=name, content=content, scope=scope)
     return {"ok": True, "item": item.to_dict()}
 
 
@@ -1192,9 +1193,10 @@ async def _run_agent_streaming(
     )
 
 
-# Serve static files (CSS, JS)
+# Serve static files (CSS, JS, img)
 app.mount("/css", StaticFiles(directory=os.path.join(WEB_DIR, "css")), name="css")
 app.mount("/js", StaticFiles(directory=os.path.join(WEB_DIR, "js")), name="js")
+app.mount("/img", StaticFiles(directory=os.path.join(WEB_DIR, "img")), name="img")
 
 
 def _kill_previous(port: int):

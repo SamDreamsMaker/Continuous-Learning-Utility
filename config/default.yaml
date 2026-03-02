@@ -62,6 +62,7 @@ tools:
     - validate_csharp
     - unity_logs
     - manage_schedules
+    - manage_context
 
 heartbeat:
   enabled: true

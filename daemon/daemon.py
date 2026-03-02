@@ -22,6 +22,7 @@ from orchestrator.providers.factory import create_provider
 from orchestrator.runner import AgentRunner
 from orchestrator.session import SessionManager
 from orchestrator import events as evt
+from orchestrator.context_store import ContextStore
 from skills.manager import SkillManager
 
 logger = logging.getLogger(__name__)
@@ -183,6 +184,7 @@ class AgentDaemon:
                 task_queue=self.queue,
                 scheduler=self.scheduler,
                 skill_manager=self.skill_manager,
+                context_store=ContextStore(project_path=project_path),
             )
 
             result = await runner.run(task=task_text)

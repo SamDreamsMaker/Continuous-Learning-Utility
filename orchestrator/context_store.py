@@ -1,7 +1,7 @@
 """CLU Context Store — user-managed context items injected into every agent run.
 
 Items are stored in {project_path}/.clu/user-context.json as a simple JSON list.
-Each item has a name, content text, and an enabled toggle.
+Each item has a name, content text, an enabled toggle, and an optional scope.
 Active items are injected into the system prompt under ## User Context.
 """
 
@@ -16,6 +16,8 @@ from dataclasses import asdict, dataclass
 
 logger = logging.getLogger(__name__)
 
+VALID_SCOPES = ("always", "coder", "reviewer", "tester")
+
 
 @dataclass
 class ContextItem:
@@ -24,18 +26,23 @@ class ContextItem:
     content: str
     enabled: bool = True
     created_at: str = ""
+    scope: str = "always"
 
     def to_dict(self) -> dict:
         return asdict(self)
 
     @classmethod
     def from_dict(cls, d: dict) -> "ContextItem":
+        scope = d.get("scope", "always")
+        if scope not in VALID_SCOPES:
+            scope = "always"
         return cls(
             id=d.get("id", ""),
             name=d.get("name", ""),
             content=d.get("content", ""),
             enabled=bool(d.get("enabled", True)),
             created_at=d.get("created_at", ""),
+            scope=scope,
         )
 
 
@@ -60,15 +67,18 @@ class ContextStore:
         self._ensure_loaded()
         return list(self._items)
 
-    def add_item(self, name: str, content: str) -> ContextItem:
+    def add_item(self, name: str, content: str, scope: str = "always") -> ContextItem:
         """Create a new context item and persist it."""
         self._ensure_loaded()
+        if scope not in VALID_SCOPES:
+            scope = "always"
         item = ContextItem(
             id=str(uuid.uuid4()),
             name=name.strip(),
             content=content,
             enabled=True,
             created_at=datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            scope=scope,
         )
         self._items.append(item)
         self._save()
@@ -85,6 +95,8 @@ class ContextStore:
                     item.content = str(kwargs["content"])
                 if "enabled" in kwargs:
                     item.enabled = bool(kwargs["enabled"])
+                if "scope" in kwargs and kwargs["scope"] in VALID_SCOPES:
+                    item.scope = kwargs["scope"]
                 self._save()
                 return item
         return None
@@ -99,14 +111,28 @@ class ContextStore:
             return True
         return False
 
-    def get_active_text(self) -> str:
+    def get_item_by_name(self, name: str) -> ContextItem | None:
+        """Find an item by name (case-insensitive). Returns first match."""
+        self._ensure_loaded()
+        name_lower = name.strip().lower()
+        for item in self._items:
+            if item.name.lower() == name_lower:
+                return item
+        return None
+
+    def get_active_text(self, role: str | None = None) -> str:
         """Build the ## User Context block for system prompt injection.
 
-        Returns empty string when no active items exist so callers can
-        skip injection cleanly.
+        Items with scope='always' are always included.
+        Items with a role scope are only included when role matches.
+        Returns empty string when no active items exist.
         """
         self._ensure_loaded()
-        active = [i for i in self._items if i.enabled and i.content.strip()]
+        active = [
+            i for i in self._items
+            if i.enabled and i.content.strip()
+            and (i.scope == "always" or i.scope == role)
+        ]
         if not active:
             return ""
         parts = [f"### {i.name}\n{i.content.strip()}" for i in active]

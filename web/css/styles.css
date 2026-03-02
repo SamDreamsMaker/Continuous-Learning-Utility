@@ -971,13 +971,12 @@ body {
 .badge.sm { font-size: 9px; padding: 1px 5px; }
 
 /* ===== NAV BAR ===== */
-.brand {
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--accent);
+.brand-logo {
+  height: 32px;
+  width: auto;
   margin-right: 8px;
-  white-space: nowrap;
   flex-shrink: 0;
+  display: block;
 }
 
 .nav {
@@ -1124,6 +1123,11 @@ body {
   padding: 16px;
 }
 
+#sessions-list {
+  padding-right: 6px;
+  scrollbar-gutter: stable;
+}
+
 .config-section h2 {
   font-size: 12px;
   font-weight: 600;
@@ -1183,6 +1187,25 @@ body {
   .messages { padding: 8px; gap: 6px; }
   .msg { padding: 8px 10px; font-size: 12px; }
 }
+
+/* ===== SETUP PROMPT ===== */
+.setup-prompt {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 24px 16px;
+  padding: 16px;
+  background: rgba(0, 212, 255, 0.06);
+  border: 1px solid rgba(0, 212, 255, 0.2);
+  border-radius: 8px;
+}
+.setup-prompt-icon { font-size: 20px; flex-shrink: 0; }
+.setup-prompt-body { flex: 1; display: flex; flex-direction: column; gap: 2px; font-size: 12px; }
+.setup-prompt-body strong { color: var(--text); }
+.setup-prompt-body span { color: var(--text2); }
+
+/* Send button disabled state */
+#send-btn.not-connected { opacity: 0.4; cursor: not-allowed; }
 
 /* ===== CONTEXT ===== */
 .context-indicator {
