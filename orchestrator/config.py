@@ -46,7 +46,7 @@ class AgentConfig:
     ])
 
     # Validation settings
-    unity_dll_path: str = "C:/Program Files/Unity/Hub/Editor/6000.0.58f2/Editor/Data/Managed/UnityEngine"
+    unity_dll_path: str = ""  # Set in config/profiles/unity.yaml to your Unity install path
     dotnet_path: str = "dotnet"
     validation_timeout: int = 30
     validation_enabled: bool = True

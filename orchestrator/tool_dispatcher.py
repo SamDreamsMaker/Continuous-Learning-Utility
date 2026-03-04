@@ -22,7 +22,7 @@ class ToolDispatcher:
 
         Args:
             tool_call: Normalized dict with keys: id, name, arguments.
-            project_path: Absolute path to the Unity project root.
+            project_path: Absolute path to the project root.
 
         Returns:
             JSON-serialized result string for the LLM.

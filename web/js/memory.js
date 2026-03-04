@@ -72,8 +72,23 @@ async function editMemory(category) {
     current = d.content || '';
   } catch (e) {}
 
-  const newContent = prompt(`Edit "${category}" knowledge:`, current);
-  if (newContent === null) return; // Cancelled
+  // Show inline editor instead of prompt()
+  const el = document.getElementById('memory-content');
+  if (!el) return;
+  el.innerHTML = `
+    <h4>Editing: ${escHtml(category)}</h4>
+    <textarea id="memory-editor" rows="12" style="width:100%;font-family:monospace;background:var(--bg2);color:var(--fg);border:1px solid var(--border);padding:8px;resize:vertical;">${escHtml(current)}</textarea>
+    <div style="margin-top:8px;">
+      <button class="btn sm" onclick="saveMemory('${escHtml(category)}')">Save</button>
+      <button class="btn sm danger" onclick="loadMemory()">Cancel</button>
+    </div>
+  `;
+}
+
+async function saveMemory(category) {
+  const textarea = document.getElementById('memory-editor');
+  if (!textarea) return;
+  const newContent = textarea.value;
 
   try {
     const r = await fetch(`/api/memory/${category}`, {

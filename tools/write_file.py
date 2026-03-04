@@ -195,7 +195,7 @@ class WriteFileTool(BaseTool):
             # Read unity_dll_path from config if available, else empty string
             from orchestrator.config import AgentConfig
             try:
-                cfg = AgentConfig.load()
+                cfg = AgentConfig.from_yaml()
                 dll_path = cfg.unity_dll_path or ""
             except Exception:
                 dll_path = ""

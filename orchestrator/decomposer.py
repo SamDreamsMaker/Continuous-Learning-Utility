@@ -15,14 +15,14 @@ from orchestrator.providers.base import LLMProvider
 logger = logging.getLogger(__name__)
 
 DECOMPOSE_PROMPT = """\
-You are a task decomposition engine for a Unity C# AI agent.
+You are a task decomposition engine for an autonomous AI coding agent.
 
 Given a complex task, break it into smaller, ordered sub-tasks that can be executed sequentially by specialized agents.
 
 Available roles:
 - **coder**: Full read/write access. Implements features, fixes bugs, creates files.
 - **reviewer**: Read-only access. Reviews code, finds issues, suggests improvements. Produces a report.
-- **tester**: Can write test files only (Assets/Tests/). Generates NUnit tests.
+- **tester**: Can write test files only. Generates tests appropriate for the project's language and framework.
 
 Rules:
 - Each sub-task must be self-contained and independently executable.

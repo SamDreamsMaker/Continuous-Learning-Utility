@@ -6,8 +6,8 @@ function initHeartbeat() {
   loadHeartbeat();
   if (_heartbeatInterval) clearInterval(_heartbeatInterval);
   _heartbeatInterval = setInterval(() => {
-    const tab = document.querySelector('.tab-btn.active');
-    if (tab && tab.dataset.tab === 'heartbeat') loadHeartbeat();
+    const el = document.getElementById('heartbeat-content');
+    if (el && el.offsetParent !== null) loadHeartbeat();
   }, 10000);
 }
 

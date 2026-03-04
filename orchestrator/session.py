@@ -3,6 +3,8 @@
 import json
 import os
 import logging
+import re
+import secrets
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
@@ -20,9 +22,18 @@ class SessionManager:
     - files_modified: list of modified files for rollback
     """
 
+    _VALID_ID = re.compile(r"^[a-zA-Z0-9_-]+$")
+
     def __init__(self, sessions_dir: str | None = None):
         self.sessions_dir = sessions_dir or SESSIONS_DIR
         os.makedirs(self.sessions_dir, exist_ok=True)
+
+    @classmethod
+    def _validate_id(cls, session_id: str) -> str:
+        """Validate session_id to prevent path traversal."""
+        if not session_id or not cls._VALID_ID.match(session_id):
+            raise ValueError(f"Invalid session_id: {session_id!r}")
+        return session_id
 
     def save(
         self,
@@ -35,6 +46,7 @@ class SessionManager:
         name: str = "",
     ):
         """Save a session to disk."""
+        self._validate_id(session_id)
         session = {
             "id": session_id,
             "name": name or task[:50],
@@ -54,6 +66,7 @@ class SessionManager:
 
     def load(self, session_id: str) -> dict | None:
         """Load a session from disk."""
+        self._validate_id(session_id)
         path = os.path.join(self.sessions_dir, f"{session_id}.json")
         if not os.path.isfile(path):
             return None
@@ -98,6 +111,7 @@ class SessionManager:
 
     def delete(self, session_id: str) -> bool:
         """Delete a session file."""
+        self._validate_id(session_id)
         path = os.path.join(self.sessions_dir, f"{session_id}.json")
         if os.path.isfile(path):
             os.remove(path)
@@ -106,6 +120,7 @@ class SessionManager:
 
     def rename(self, session_id: str, new_name: str) -> bool:
         """Rename a session."""
+        self._validate_id(session_id)
         path = os.path.join(self.sessions_dir, f"{session_id}.json")
         if not os.path.isfile(path):
             return False
@@ -118,4 +133,4 @@ class SessionManager:
 
     def generate_id(self) -> str:
         """Generate a unique session ID."""
-        return datetime.now().strftime("%Y%m%d_%H%M%S")
+        return f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{secrets.token_hex(3)}"

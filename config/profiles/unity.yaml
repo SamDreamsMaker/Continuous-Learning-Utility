@@ -41,7 +41,9 @@ security:
 validation:
   enabled: true
   validator: "csharp"            # "csharp" | "none"
-  unity_dll_path: "C:/Program Files/Unity/Hub/Editor/6000.0.58f2/Editor/Data/Managed/UnityEngine"
+  unity_dll_path: ""                # Path to UnityEngine DLLs — set to your Unity install, e.g.:
+                                    # Windows: "C:/Program Files/Unity/Hub/Editor/<version>/Editor/Data/Managed/UnityEngine"
+                                    # macOS:   "/Applications/Unity/Hub/Editor/<version>/Unity.app/Contents/Managed/UnityEngine"
   dotnet_path: "dotnet"
   lang_version: "9.0"
   target_framework: "netstandard2.1"

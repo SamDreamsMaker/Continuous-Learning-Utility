@@ -40,8 +40,14 @@ class ValidateCSharpTool(BaseTool):
         from validation.csharp_validator import CSharpValidator
 
         if ValidateCSharpTool._validator is None:
+            from orchestrator.config import AgentConfig
+            try:
+                cfg = AgentConfig.from_yaml()
+                dll_path = cfg.unity_dll_path or ""
+            except Exception:
+                dll_path = ""
             ValidateCSharpTool._validator = CSharpValidator(
-                unity_dll_path="C:/Program Files/Unity/Hub/Editor/6000.0.58f2/Editor/Data/Managed/UnityEngine",
+                unity_dll_path=dll_path,
             )
 
         return ValidateCSharpTool._validator.validate(code, project_path)

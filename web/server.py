@@ -50,6 +50,9 @@ _skill_manager: SkillManager | None = None
 _skill_state: SkillStateStore | None = None
 _context_store: ContextStore | None = None
 _module_manager: ModuleManager | None = None
+_provider_status_cache: dict | None = None
+_provider_status_ts: float = 0.0
+_PROVIDER_STATUS_TTL = 30.0  # seconds
 
 
 def get_config() -> AgentConfig:
@@ -101,20 +104,33 @@ async def status():
     config = get_config()
     project = get_project_path()
 
-    # Test LLM provider connection
-    provider_ok = False
-    provider_name = config.provider
-    model_name = config.model
-    provider_models = []
-    try:
-        provider = get_provider()
-        result = await asyncio.to_thread(provider.test_connection)
-        provider_ok = result.get("ok", False)
-        provider_name = provider.provider_name
-        model_name = provider.model_name
-        provider_models = result.get("models", [])
-    except Exception:
-        pass
+    # Test LLM provider connection (cached for 30s to avoid API spam)
+    global _provider_status_cache, _provider_status_ts
+    now = time.time()
+    if _provider_status_cache is None or (now - _provider_status_ts) > _PROVIDER_STATUS_TTL:
+        provider_ok = False
+        provider_name = config.provider
+        model_name = config.model
+        provider_models = []
+        try:
+            provider = get_provider()
+            result = await asyncio.to_thread(provider.test_connection)
+            provider_ok = result.get("ok", False)
+            provider_name = provider.provider_name
+            model_name = provider.model_name
+            provider_models = result.get("models", [])
+        except Exception:
+            pass
+        _provider_status_cache = {
+            "ok": provider_ok, "name": provider_name,
+            "model": model_name, "models": provider_models,
+        }
+        _provider_status_ts = now
+    else:
+        provider_ok = _provider_status_cache["ok"]
+        provider_name = _provider_status_cache["name"]
+        model_name = _provider_status_cache["model"]
+        provider_models = _provider_status_cache["models"]
 
     # Check project validity
     project_ok = False
@@ -714,20 +730,14 @@ async def update_memory_category(category: str, body: dict):
 
 @app.get("/api/costs")
 async def get_costs():
-    """Aggregate token usage from saved sessions."""
+    """Aggregate token usage from saved sessions (uses summaries, no full load)."""
     sessions_data = []
     total_tokens = 0
     total_prompt = 0
     total_completion = 0
 
-    sessions_list = _session_mgr.list_sessions()
-    for s in sessions_list[:50]:
-        sid = s.get("id", "")
-        session = _session_mgr.load(sid)
-        if not session:
-            continue
-
-        budget = session.get("budget", {})
+    for s in _session_mgr.list_sessions()[:50]:
+        budget = s.get("budget", {})
         tokens = budget.get("raw_total_tokens", 0)
         prompt_t = budget.get("raw_prompt_tokens", 0)
         completion_t = budget.get("raw_completion_tokens", 0)
@@ -737,8 +747,8 @@ async def get_costs():
         total_completion += completion_t
 
         sessions_data.append({
-            "session_id": sid,
-            "task": session.get("task", "")[:80],
+            "session_id": s.get("id", ""),
+            "task": s.get("task", "")[:80],
             "tokens": tokens,
             "prompt_tokens": prompt_t,
             "completion_tokens": completion_t,
