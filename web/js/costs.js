@@ -1,7 +1,14 @@
 // ===== COSTS / TOKEN TRACKING UI =====
 
+let _costsInterval = null;
+
 function initCosts() {
   loadCosts();
+  if (_costsInterval) clearInterval(_costsInterval);
+  _costsInterval = setInterval(() => {
+    const el = document.getElementById('costs-content');
+    if (el && el.offsetParent !== null) loadCosts();
+  }, 15000);
 }
 
 async function loadCosts() {

@@ -1,6 +1,5 @@
 """OpenAI-compatible provider (LM Studio, OpenAI, Ollama, vLLM, etc.)."""
 
-import time
 import logging
 
 import openai
@@ -41,70 +40,51 @@ class OpenAICompatProvider(LLMProvider):
         tools: list[dict] | None = None,
         **kwargs,
     ) -> LLMResponse:
-        max_retries = 3
+        try:
+            response = self.client.chat.completions.create(
+                model=self._model,
+                messages=messages,
+                tools=tools if tools else openai.NOT_GIVEN,
+                stream=False,
+                **kwargs,
+            )
 
-        for attempt in range(max_retries):
-            try:
-                response = self.client.chat.completions.create(
-                    model=self._model,
-                    messages=messages,
-                    tools=tools if tools else openai.NOT_GIVEN,
-                    stream=False,
-                    **kwargs,
-                )
+            message = response.choices[0].message
+            tool_calls = None
+            if message.tool_calls:
+                tool_calls = [
+                    {
+                        "id": tc.id,
+                        "name": tc.function.name,
+                        "arguments": tc.function.arguments,
+                    }
+                    for tc in message.tool_calls
+                ]
 
-                message = response.choices[0].message
-                tool_calls = None
-                if message.tool_calls:
-                    tool_calls = [
-                        {
-                            "id": tc.id,
-                            "name": tc.function.name,
-                            "arguments": tc.function.arguments,
-                        }
-                        for tc in message.tool_calls
-                    ]
+            return LLMResponse(
+                content=message.content,
+                tool_calls=tool_calls,
+                prompt_tokens=(response.usage.prompt_tokens or 0) if response.usage else 0,
+                completion_tokens=(response.usage.completion_tokens or 0) if response.usage else 0,
+            )
 
-                return LLMResponse(
-                    content=message.content,
-                    tool_calls=tool_calls,
-                    prompt_tokens=(response.usage.prompt_tokens or 0) if response.usage else 0,
-                    completion_tokens=(response.usage.completion_tokens or 0) if response.usage else 0,
-                )
+        except openai.APIConnectionError as e:
+            raise ConnectionError(f"API unreachable: {e}") from e
 
-            except openai.APIConnectionError as e:
-                logger.warning(
-                    "Connection failed (attempt %d/%d): %s",
-                    attempt + 1, max_retries, e,
-                )
-                if attempt == max_retries - 1:
-                    raise ConnectionError(
-                        f"API unreachable after {max_retries} attempts: {e}"
-                    ) from e
-                time.sleep(2 ** attempt)
+        except openai.APIStatusError as e:
+            # Context overflow → raise specific error
+            msg = str(e).lower()
+            if e.status_code == 400 and (
+                "n_keep" in msg or "n_ctx" in msg
+                or "context_length_exceeded" in msg
+                or "maximum context length" in msg
+            ):
+                from orchestrator.exceptions import ContextOverflowError
+                raise ContextOverflowError(
+                    f"Prompt exceeds model context window: {e}"
+                ) from e
 
-            except openai.APIStatusError as e:
-                # Context overflow → fail immediately (no retry)
-                msg = str(e).lower()
-                if e.status_code == 400 and (
-                    "n_keep" in msg or "n_ctx" in msg
-                    or "context_length_exceeded" in msg
-                    or "maximum context length" in msg
-                ):
-                    from orchestrator.exceptions import ContextOverflowError
-                    raise ContextOverflowError(
-                        f"Prompt exceeds model context window: {e}"
-                    ) from e
-
-                logger.warning(
-                    "API error (attempt %d/%d): %s",
-                    attempt + 1, max_retries, e,
-                )
-                if attempt == max_retries - 1:
-                    raise ConnectionError(
-                        f"API error after {max_retries} attempts: {e}"
-                    ) from e
-                time.sleep(2 ** attempt)
+            raise ConnectionError(f"API error: {e}") from e
 
     def test_connection(self) -> dict:
         try:

@@ -17,8 +17,8 @@ function initTasks() {
   // Auto-refresh every 5s when tab is visible
   if (_tasksInterval) clearInterval(_tasksInterval);
   _tasksInterval = setInterval(() => {
-    const tab = document.querySelector('.tab-btn.active');
-    if (tab && tab.dataset.tab === 'tasks') loadTasks();
+    const el = document.getElementById('tasks-list');
+    if (el && el.offsetParent !== null) loadTasks();
   }, 5000);
 }
 

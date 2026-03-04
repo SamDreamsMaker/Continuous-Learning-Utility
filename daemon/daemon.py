@@ -128,6 +128,16 @@ class AgentDaemon:
             logger.info("Recovered %d stale tasks on startup", stale)
 
         while self._running:
+            # Always tick heartbeat and scheduler regardless of queue state
+            if self._project_path and self.heartbeat.should_tick():
+                logger.info("Heartbeat tick (project: %s)", self._project_path)
+                self.heartbeat.tick(self._project_path)
+
+            if self._project_path and self.scheduler.should_tick():
+                enqueued = self.scheduler.tick(self._project_path)
+                if enqueued:
+                    logger.info("Scheduler enqueued %d tasks", len(enqueued))
+
             task = self.queue.dequeue()
 
             if task:
@@ -137,18 +147,6 @@ class AgentDaemon:
                     self._project_path = project
                 await self._execute_task(task)
             else:
-                # Queue empty — run heartbeat if it's time
-                if self._project_path and self.heartbeat.should_tick():
-                    logger.info("Heartbeat tick (project: %s)", self._project_path)
-                    self.heartbeat.tick(self._project_path)
-
-                # Run scheduler if it's time
-                if self._project_path and self.scheduler.should_tick():
-                    enqueued = self.scheduler.tick(self._project_path)
-                    if enqueued:
-                        logger.info("Scheduler enqueued %d tasks", len(enqueued))
-                        continue  # Process newly enqueued tasks immediately
-
                 # Run registry sync if enabled and due
                 await self._maybe_sync_registry()
 

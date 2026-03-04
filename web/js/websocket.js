@@ -20,7 +20,7 @@ function connectWS() {
   ws.onerror = () => { setWsDot('err'); };
 
   ws.onmessage = (e) => {
-    handleWSMessage(JSON.parse(e.data));
+    try { handleWSMessage(JSON.parse(e.data)); } catch (err) { console.error('WS message parse error:', err); }
   };
 }
 
@@ -63,7 +63,7 @@ function handleWSMessage(data) {
       const needsExpand = resultStr.length > 400;
       addMsg('tool-result',
         `<div class="msg-label">Result: ${escHtml(data.name)}<button class="copy-btn" onclick="copyText(this, ${escAttr(resultStr)})">Copy</button></div>` +
-        `<div class="result-content${needsExpand ? '' : ' expanded'}""><pre>${escHtml(resultStr)}</pre></div>` +
+        `<div class="result-content${needsExpand ? '' : ' expanded'}"><pre>${escHtml(resultStr)}</pre></div>` +
         (needsExpand ? `<button class="expand-btn" onclick="toggleExpand(this)">Show more...</button>` : '')
       );
       if (data.result.error) {
@@ -95,6 +95,7 @@ function handleWSMessage(data) {
       }
       log(`Agent: ${stText}`, st);
       loadSessions();
+      if (typeof loadCosts === 'function') loadCosts();
       if (data.files_modified && data.files_modified.length > 0) {
         updateModifiedFiles(data.files_modified);
       }

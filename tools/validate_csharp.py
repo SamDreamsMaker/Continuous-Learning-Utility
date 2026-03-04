@@ -42,7 +42,7 @@ class ValidateCSharpTool(BaseTool):
         if ValidateCSharpTool._validator is None:
             from orchestrator.config import AgentConfig
             try:
-                cfg = AgentConfig.load()
+                cfg = AgentConfig.from_yaml()
                 dll_path = cfg.unity_dll_path or ""
             except Exception:
                 dll_path = ""

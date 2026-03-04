@@ -189,6 +189,10 @@ class MessageHistory:
 
         summary = self._summarize_middle(middle)
 
+        # Ensure keep_end doesn't start with an orphan tool result
+        while keep_end and keep_end[0].get("role") == "tool":
+            keep_end = keep_end[1:]
+
         self._messages = keep_start + [
             {"role": "user", "content": f"[CONTEXT SUMMARY of prior work]\n{summary}"}
         ] + keep_end
@@ -258,6 +262,13 @@ class MessageHistory:
         return result[:half] + f"\n... [{len(result) - max_chars} chars omitted] ...\n" + result[-half:]
 
     def _estimate_tokens(self) -> int:
-        """Rough token estimate: ~4 chars per token."""
-        total_chars = sum(len(str(m.get("content", ""))) for m in self.messages)
-        return total_chars // 4
+        """Rough token estimate: ~3 chars per token."""
+        total_chars = 0
+        for m in self.messages:
+            total_chars += len(str(m.get("content", "") or ""))
+            # Count tool call arguments (assistant messages with tool_calls)
+            for tc in m.get("tool_calls", []):
+                fn = tc.get("function", {})
+                total_chars += len(str(fn.get("arguments", "")))
+                total_chars += len(str(fn.get("name", "")))
+        return total_chars // 3
