@@ -1,7 +1,7 @@
 # CLU — Architecture & Internal Reference
 
 > Exhaustive technical documentation for contributors and developers.
-> Updated: 2026-03-03
+> Updated: 2026-03-04
 
 ## 1. Overview
 
@@ -41,7 +41,7 @@ CLU/
 │       └── python.yaml              # Python project example
 │
 ├── daemon/                          # 24/7 daemon subsystem
-│   ├── daemon.py                    # AgentDaemon main loop (queue → execute → heartbeat → schedule)
+│   ├── daemon.py                    # AgentDaemon main loop (heartbeat → schedule → queue → execute)
 │   ├── service.py                   # Start/stop/status via PID file + subprocess
 │   ├── task_queue.py                # SQLite task queue (ACID, WAL, priority, retry, dead letter)
 │   ├── heartbeat.py                 # HeartbeatManager (free checks when queue is empty)
@@ -156,7 +156,7 @@ CLU/
 │   ├── server.py                    # FastAPI + WebSocket (40+ REST endpoints incl. /api/skills/*, /api/context/*, /api/modules/*, /api/secrets/*)
 │   ├── index.html                   # Main HTML (10-tab panel + Modules tab)
 │   ├── css/styles.css               # Dark theme, responsive, tabs, components
-│   └── js/                          # 18 frontend modules
+│   └── js/                          # 19 frontend modules
 │       ├── utils.js                 # Globals, escHtml, formatMarkdown, copyText
 │       ├── store.js                 # ProviderConfigStore + connectionState reactive singleton
 │       ├── ui.js                    # Panel toggles, setRunning, addMsg, setBadge
@@ -174,7 +174,8 @@ CLU/
 │       ├── costs.js                 # Token consumption tracking
 │       ├── skills.js                # Skills list, reload, per-skill test runner
 │       ├── context.js               # Context items CRUD (scope badges, add form with scope dropdown)
-│       └── modules_tab.js           # Modules list, start/stop, enable/disable
+│       ├── modules_tab.js           # Modules list, start/stop, enable/disable
+│       └── skills-config.js        # Skills sharing: registry sync + status
 │
 ├── unity_plugin/                    # Unity Editor integration (optional)
 │   ├── AgentBridge.cs               # EditorWindow (HTTP communication with agent)
@@ -183,7 +184,7 @@ CLU/
 ├── docs/                            # Documentation
 │   └── ARCHITECTURE.md              # This file
 │
-├── tests/                           # 480+ unit tests (pytest)
+├── tests/                           # 540+ unit tests (pytest)
 │   ├── test_agent.py                # BudgetTracker + MessageHistory + loop detection
 │   ├── test_daemon.py               # TaskQueue + AgentDaemon + DaemonService
 │   ├── test_heartbeat.py            # All checks + HeartbeatManager
@@ -206,6 +207,10 @@ CLU/
 │   ├── test_pattern_analyzer.py     # Jaccard clustering, SkillCandidate extraction (16)
 │   ├── test_skill_generator.py      # LLM-based skill generation + security pipeline (11)
 │   ├── test_registry.py             # sync/publish/list/install registry operations (20)
+│   ├── test_context_store.py        # ContextStore CRUD, scopes, persistence, edge cases (19)
+│   ├── test_session.py              # SessionManager save/load/list/delete/rename, path traversal (17)
+│   ├── test_manage_context.py       # ManageContextTool list/add/disable/delete (14)
+│   ├── test_modules.py              # ModuleManager discover, lifecycle, tier override, status (10)
 │   └── fixtures/
 │       ├── sample_valid.cs
 │       └── sample_invalid.cs
@@ -246,14 +251,13 @@ main.py --web → FastAPI server on :8080
 main.py --daemon start → AgentDaemon main loop:
 
   while running:
-    1. Dequeue highest-priority task from SQLite queue
-    2. If task found → create AgentRunner with role → execute → complete/fail
-    3. If queue empty:
-       a. Run heartbeat checks (configurable: compile, new files, TODOs, large files)
-       b. Auto-enqueue tasks from heartbeat findings
-       c. Run scheduler tick (fire due cron jobs)
-    4. Send notifications (desktop / Discord / Slack) on task events
-    5. Sleep 5s → repeat
+    1. Run heartbeat checks (always tick, independent of queue state)
+    2. Run scheduler tick (fire due cron jobs)
+    3. Dequeue highest-priority task from SQLite queue
+    4. If task found → create AgentRunner with role → execute → complete/fail
+    5. If queue empty → sync registry if due → sleep 5s
+    6. Send notifications (desktop / Discord / Slack) on task events
+    7. Repeat
 ```
 
 ### LLM Protocol
@@ -473,8 +477,8 @@ See `config/profiles/` for complete examples (Unity, Python).
 | Modules | External integration modules: start/stop, enable/disable, status |
 
 **Chat page** also includes a collapsible session strip (rename, resume, delete).
-**Config page** includes: LLM provider, Secrets (OS Keyring), Agent Profile, Features,
-Project settings, Budget.
+**Config page** includes: LLM provider, Secrets (OS Keyring), Agent Profile, Features
+(incl. Skills Sharing: community sync, auto-publish, registry URL), Project settings, Budget.
 
 ### REST API (40+ endpoints)
 
@@ -542,6 +546,11 @@ POST /api/modules/{name}/toggle  Enable/disable a module
 GET  /api/secrets                List stored secret names (no values)
 POST /api/secrets/{name}         Store a secret in OS keyring
 DELETE /api/secrets/{name}       Remove a secret from keyring
+
+GET  /api/skills/registry/status    Registry cache status (installed count, last sync)
+POST /api/skills/registry/sync      Pull community skills from registry
+GET  /api/skills/registry/available List available skills in registry
+POST /api/skills/registry/install   Install a specific skill from registry
 ```
 
 ### WebSocket
@@ -698,7 +707,7 @@ python main.py --web --config config/profiles/python.yaml
 python main.py --daemon start
 
 # Run tests
-python -m pytest tests/ -v    # 480+ tests
+python -m pytest tests/ -v    # 540+ tests
 ```
 
 ---

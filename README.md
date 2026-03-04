@@ -56,6 +56,7 @@ CLU: thinks → reads existing code → plans the implementation → writes file
 **Skills System**
 - 4-tier extensibility: bundled, user (`~/.clu/skills/`), project (`.clu/skills/`), registry (`~/.clu/registry-cache/`)
 - Community registry: `https://github.com/Continuous-Learning-Utility/clu-skills`
+- Skills sharing: community registry sync + auto-publish from the dashboard Settings
 - Contextual prompt injection — only relevant skills are loaded, budget-limited
 - SHA-256 integrity checks + secret scanning + prompt injection detection
 - Declarative tests per skill (`skill.yaml`), CLI: `python main.py --skills test`
@@ -312,6 +313,7 @@ The dashboard runs at `http://localhost:8080` and provides a 2-column layout:
 - **Context**: Manage persistent context rules (scope: always / coder / reviewer / tester) injected into every agent run
 - **Provider Config**: Switch LLM provider/model on the fly
 - **Feature Toggles**: Enable/disable heartbeat, validation, skills, auto-fix, auto-generate from the UI
+- **Skills Sharing**: Toggle community registry sync, auto-publish, and configure registry URL
 - **Project Settings**: Configure source directory, language, file extensions at runtime
 - **Sessions**: Collapsible session picker in Chat with inline rename and resume
 
@@ -340,13 +342,12 @@ The daemon runs continuously, polling the task queue and performing autonomous m
 
 ```
 while running:
-  1. Dequeue highest-priority task → execute with AgentRunner
-  2. If queue empty:
-     a. Run heartbeat checks (compile, new files, TODOs, large files)
-     b. Auto-enqueue fixes for detected issues
-     c. Run scheduler tick (fire due cron jobs)
-  3. Send notifications (desktop / Discord / Slack)
-  4. Sleep 5s → repeat
+  1. Run heartbeat checks (always tick, independent of queue state)
+  2. Run scheduler tick (fire due cron jobs)
+  3. Dequeue highest-priority task → execute with AgentRunner
+  4. If queue empty → sleep 5s
+  5. Send notifications (desktop / Discord / Slack)
+  6. Repeat
 ```
 
 ### Scheduled Tasks
@@ -436,13 +437,14 @@ For Unity/C# projects, an optional Editor plugin (`unity_plugin/AgentBridge.cs`)
 # Run all tests
 python -m pytest tests/ -v
 
-# 480+ tests across 22 test files
+# 540+ tests across 26 test files
 # Covers: agent, daemon, heartbeat, integrations, memory,
 #         multi-agent, providers, resilience, sandbox,
 #         scheduler, tools, manage_schedules,
 #         skill_manifest, skill_loader, skill_manager,
 #         skill_integrations, skill_config, skill_test_runner,
-#         outcome_tracker, pattern_analyzer, skill_generator, registry
+#         outcome_tracker, pattern_analyzer, skill_generator, registry,
+#         context_store, session, manage_context, modules
 
 # Skills CLI
 python main.py --skills list     # List all loaded skills
@@ -492,7 +494,7 @@ CLU/
 │   ├── roles/                 # coder / reviewer / tester
 │   └── task_templates/        # Reusable task templates
 ├── docs/                      # In-depth architecture reference
-├── tests/                     # 480+ unit tests (pytest)
+├── tests/                     # 540+ unit tests (pytest)
 └── unity_plugin/              # Unity Editor integration (optional)
 ```
 
