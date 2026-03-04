@@ -19,8 +19,10 @@ class SearchInFilesTool(BaseTool):
     @property
     def description(self) -> str:
         return (
-            "Search for a text/regex pattern across files. "
-            "Returns matching file paths and lines with context. Searches within the project source directory."
+            "Search for a text or Python regex pattern across project files (max 50 results). "
+            "Returns [{file, line, match, context}] with ~2 lines of context per match. "
+            "Use file_pattern to filter by extension (e.g. '*.py'). "
+            "Path defaults to project root. Regex uses Python `re` module syntax."
         )
 
     @property
@@ -50,7 +52,7 @@ class SearchInFilesTool(BaseTool):
 
     def execute(self, args: dict, project_path: str, sandbox, backup) -> dict:
         pattern = args.get("pattern", "")
-        path = args.get("path", "Assets/")
+        path = args.get("path", "")
         file_pattern = args.get("file_pattern", "*")
         max_results = min(args.get("max_results", 20), self.MAX_RESULTS_CAP)
 

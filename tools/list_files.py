@@ -17,7 +17,12 @@ class ListFilesTool(BaseTool):
 
     @property
     def description(self) -> str:
-        return "List files in a directory within the project source directory."
+        return (
+            "List files in a directory (max 200 results). "
+            "Supports glob patterns (*, **, ?) via the 'pattern' param. "
+            "Returns [{path, size}] sorted alphabetically. "
+            "Path defaults to project root. Set recursive=true for subdirectories."
+        )
 
     @property
     def parameters_schema(self) -> dict:
@@ -40,7 +45,7 @@ class ListFilesTool(BaseTool):
         }
 
     def execute(self, args: dict, project_path: str, sandbox, backup) -> dict:
-        path = args.get("path", "Assets/")
+        path = args.get("path", "")
         pattern = args.get("pattern", "*")
         recursive = args.get("recursive", False)
 

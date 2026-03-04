@@ -17,9 +17,13 @@ class WriteFileTool(BaseTool):
     @property
     def description(self) -> str:
         return (
-            "Write or patch a file. For new files, provide full 'content'. "
-            "For existing files, provide 'patches' array for incremental edits. "
-            "Paths must be within the allowed source directory. Source files may be validated before writing."
+            "Write or patch a file (max 50KB). Two modes:\n"
+            "- 'content': full file content (creates or overwrites)\n"
+            "- 'patches': array of incremental edits on existing file. Each patch has: "
+            "action (replace|insert_after|insert_before|delete), target (exact string to find), "
+            "replacement (new text). Patches apply in order.\n"
+            "Existing files are backed up automatically. "
+            "Respects sandbox: write-blocked prefixes (.clu, config) cannot be written."
         )
 
     @property
@@ -188,7 +192,14 @@ class WriteFileTool(BaseTool):
             return {"valid": True}  # Validation not available, skip
 
         if not hasattr(WriteFileTool, "_validator_instance"):
+            # Read unity_dll_path from config if available, else empty string
+            from orchestrator.config import AgentConfig
+            try:
+                cfg = AgentConfig.load()
+                dll_path = cfg.unity_dll_path or ""
+            except Exception:
+                dll_path = ""
             WriteFileTool._validator_instance = CSharpValidator(
-                unity_dll_path="C:/Program Files/Unity/Hub/Editor/6000.0.58f2/Editor/Data/Managed/UnityEngine",
+                unity_dll_path=dll_path,
             )
         return WriteFileTool._validator_instance.validate(code, project_path)

@@ -15,8 +15,10 @@ class ReadFileTool(BaseTool):
     @property
     def description(self) -> str:
         return (
-            "Read the contents of a file with line numbers. "
-            "Path is relative to the project root and must be within the allowed source directory."
+            "Read a file's contents (UTF-8 text only, max 100KB). "
+            "Returns numbered lines in format '  42 | code here'. "
+            "Path is relative to project root. Binary files are rejected. "
+            "Respects sandbox: blocked prefixes cannot be read."
         )
 
     @property
@@ -26,7 +28,7 @@ class ReadFileTool(BaseTool):
             "properties": {
                 "path": {
                     "type": "string",
-                    "description": "Relative path from project root, e.g. 'Assets/Scripts/Player.cs'.",
+                    "description": "Relative path from project root, e.g. 'src/main.py'.",
                 },
             },
             "required": ["path"],

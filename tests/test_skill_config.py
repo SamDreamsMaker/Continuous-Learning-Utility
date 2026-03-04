@@ -139,8 +139,9 @@ class TestSkillsConfigResolution:
             user_skills_dir=config.skills_user_dir or None,
             project_skills_dir=config.skills_project_dir or None,
         )
-        # Patch bundled dir to avoid loading real bundled skills in test
+        # Isolate from real bundled + registry skills in test
         loader.BUNDLED_DIR = str(tmp_path / "nonexistent")
+        loader.registry_dir = str(tmp_path / "nonexistent_registry")
         mgr = SkillManager.from_loader(loader)
 
         assert mgr.skill_count == 1

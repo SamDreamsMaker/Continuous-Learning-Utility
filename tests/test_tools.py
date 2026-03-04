@@ -135,7 +135,7 @@ class TestSearchInFiles:
     def test_search_no_match(self, project_root, sandbox, backup):
         tool = SearchInFilesTool()
         result = tool.execute(
-            {"pattern": "ZZZZZZZ_NOT_FOUND"},
+            {"pattern": "ZZZZZZZ_NOT_FOUND", "path": "Assets/"},
             project_root, sandbox, backup,
         )
         assert result["count"] == 0

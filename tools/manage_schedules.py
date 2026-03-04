@@ -20,9 +20,12 @@ class ManageSchedulesTool(BaseTool):
     @property
     def description(self) -> str:
         return (
-            "Manage the daemon's cron schedules. "
-            "Actions: list (show all schedules), create (add new schedule), "
-            "update (modify existing), delete (remove), toggle (enable/disable)."
+            "Manage cron schedules (stored in config/schedules.yaml). "
+            "Actions: list, create, update, delete, toggle.\n"
+            "Cron format: 'minute hour day month weekday' (0=Mon..6=Sun).\n"
+            "Each schedule fires a task_template from prompts/task_templates/automation/.\n"
+            "Requires the daemon scheduler to be wired. If unavailable, "
+            "edit config/schedules.yaml directly via write_file as a fallback."
         )
 
     @property
@@ -65,7 +68,11 @@ class ManageSchedulesTool(BaseTool):
 
     def execute(self, args: dict, project_path: str, sandbox, backup) -> dict:
         if self._scheduler is None:
-            return {"error": "Scheduler not available (daemon not running or not wired)"}
+            return {
+                "error": "Scheduler not available (daemon not running or not wired).",
+                "hint": "You can edit config/schedules.yaml directly using write_file to add or modify schedules. "
+                        "The daemon will pick up changes on next restart.",
+            }
 
         action = args.get("action", "")
 

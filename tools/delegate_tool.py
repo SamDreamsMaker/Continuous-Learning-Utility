@@ -20,11 +20,12 @@ class DelegateTool(BaseTool):
     @property
     def description(self) -> str:
         return (
-            "Delegate a sub-task to a specialized agent role. "
-            "The sub-task will be enqueued and executed by an agent with the specified role. "
-            "Roles: 'coder' (full read/write), 'reviewer' (read-only, produces report), "
-            "'tester' (writes test files only). "
-            "Use this when a task is too complex to do alone or requires a different specialization."
+            "Enqueue a sub-task for asynchronous execution by another agent role. "
+            "The task is added to the daemon's task queue and processed when available (not immediate).\n"
+            "Roles: 'coder' (full read/write access), 'reviewer' (read-only, produces report), "
+            "'tester' (can only write test files).\n"
+            "Requires the daemon task queue. If unavailable, describe the sub-task in your response "
+            "so the user can run it manually."
         )
 
     @property

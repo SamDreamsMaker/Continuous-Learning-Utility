@@ -16,14 +16,15 @@ class MemoryTool(BaseTool):
     @property
     def description(self) -> str:
         return (
-            "Read or write persistent memory. Use this to recall past learnings, "
-            "save new conventions/patterns you discover, or log observations.\n"
+            "Read or write persistent memory stored in .clu/memory/.\n"
             "Actions:\n"
-            "- read: Read a knowledge category (conventions, known_issues, project_patterns)\n"
-            "- write: Save/overwrite a knowledge category\n"
-            "- append: Add an entry to a knowledge category\n"
+            "- read: Read a category → returns full text\n"
+            "- write: Overwrite a category (replaces all content)\n"
+            "- append: Add a line to a category (preserves existing)\n"
             "- log: Log an observation to today's activity log\n"
-            "- today: Read today's activity log"
+            "- today: Read today's activity log\n"
+            f"Categories: {', '.join(CATEGORIES)}. "
+            "Use 'append' to accumulate findings; 'write' only to reset a category."
         )
 
     @property

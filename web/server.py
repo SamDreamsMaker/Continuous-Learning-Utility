@@ -1285,6 +1285,8 @@ async def _run_agent_streaming(
         session_mgr=_session_mgr,
         skill_manager=get_skill_manager(),
         context_store=get_context_store(),
+        scheduler=_scheduler,
+        task_queue=_task_queue,
     )
 
     async def on_event(event: AgentEvent):

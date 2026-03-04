@@ -455,7 +455,7 @@ See `config/profiles/` for complete examples (Unity, Python).
 
 2-column responsive layout:
 - **Center**: real-time chat streaming (tool calls, results, responses)
-- **Right panel**: 8-tab dashboard
+- **Right panel**: 10-tab dashboard
 
 ### Tabs
 

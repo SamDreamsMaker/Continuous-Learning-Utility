@@ -78,13 +78,6 @@ CLU: thinks → reads existing code → plans the implementation → writes file
 - Resolution cascade: Keyring → environment variable (`CLU_` prefix) → YAML value
 - CLI: `python main.py --secret set/get/delete/list`
 - Dashboard Config page: Secrets section with per-key Save/Delete
-
-**Integrations**
-- GitHub webhooks (issues → tasks, push → auto-review)
-- Notifications: desktop (Windows/macOS/Linux), Discord, Slack
-- Unity Editor plugin (optional, for C# projects)
-
-**Security**
 - Configurable sandbox: optional path prefix + blocklist + write-only blocklist
 - Default: unrestricted (no prefix) with OS system dirs blocked (C:/Windows, /etc, /bin…)
 - Write-blocked dirs (`.clu/`) prevent CLU from injecting malicious skill modules
@@ -92,6 +85,11 @@ CLU: thinks → reads existing code → plans the implementation → writes file
 - Budget limits: max iterations, max tokens, context window cap
 - Context overflow prevention: auto-trims prompt sections when exceeding model context window
 - LLM profiles (`auto`/`compact`/`default`): adapts prompt size, tools, and thresholds for small local models
+
+**Integrations**
+- GitHub webhooks (issues → tasks, push → auto-review)
+- Notifications: desktop (Windows/macOS/Linux), Discord, Slack
+- Unity Editor plugin (optional, for C# projects)
 
 ## Quick Start
 

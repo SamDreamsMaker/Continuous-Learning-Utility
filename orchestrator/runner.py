@@ -489,7 +489,9 @@ class AgentRunner:
                     "Call think() before every action. Use write_file to create files. "
                     "Respond with a text summary when done."
                 )
-            return f"{base_prompt}\n\n## Project Context\n- Project path: {self.project_path}\n"
+            prompt = f"{base_prompt}\n\n## Project Context\n- Project path: {self.project_path}\n"
+            prompt += self._build_environment_section()
+            return prompt
 
         # Default profile: full prompt cascade with all injections
         candidates = [
@@ -513,6 +515,9 @@ class AgentRunner:
             )
         prompt = f"{base_prompt}\n\n## Project Context\n- Project path: {self.project_path}\n"
 
+        # Inject environment section (sandbox rules, enabled tools, config paths)
+        prompt += self._build_environment_section()
+
         # Inject role-specific prompt
         if self.role:
             role_path = os.path.join(
@@ -535,6 +540,25 @@ class AgentRunner:
                 prompt += f"\n{user_ctx}"
 
         return prompt
+
+    def _build_environment_section(self) -> str:
+        """Build the ## Environment section injected into the system prompt."""
+        cfg = self.config
+        tools_list = ", ".join(sorted(self.tools.names))
+        allowed = cfg.allowed_path_prefix or "all (project root)"
+        blocked = ", ".join(cfg.blocked_prefixes) if cfg.blocked_prefixes else "none"
+        write_blocked = ", ".join(cfg.write_blocked_prefixes) if cfg.write_blocked_prefixes else "none"
+        lines = [
+            "\n## Environment",
+            f"- Profile: {self._llm_profile}",
+            f"- Enabled tools: {tools_list}",
+            f"- Sandbox: read-allowed={allowed}, read-blocked=[{blocked}], write-blocked=[{write_blocked}]",
+            f"- Config: config/default.yaml (main), config/schedules.yaml (cron schedules)",
+            f"- Schedules: config/schedules.yaml — templates in prompts/task_templates/automation/",
+            f"- Memory: .clu/memory/ — Context rules: .clu/user-context.json",
+            "- Limits: read_file max 100KB, write_file max 50KB, list_files max 200 results, search max 50 results",
+        ]
+        return "\n".join(lines) + "\n"
 
     # System prompt should use at most 50% of context window
     # (leaving room for tool schemas, conversation history, and response)

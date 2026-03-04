@@ -19,10 +19,11 @@ class ManageContextTool(BaseTool):
     @property
     def description(self) -> str:
         return (
-            "Manage persistent context rules that are injected into every agent system prompt. "
-            "Use this to save conventions, coding standards, or constraints discovered during work. "
-            "Actions: list (show all rules), add (create a new rule), "
-            "disable (turn off a rule by name), delete (remove a rule permanently)."
+            "Manage persistent context rules (stored in .clu/user-context.json). "
+            "Rules are injected into the agent system prompt on every run.\n"
+            "Actions: list, add, disable, delete.\n"
+            "Scopes: 'always' (injected in every run), 'coder'/'reviewer'/'tester' (only for that role).\n"
+            "Use this to persist conventions, constraints, or coding standards the agent should always follow."
         )
 
     @property
